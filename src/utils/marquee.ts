@@ -1,4 +1,4 @@
-export const DEFAULT_MARQUEE_MAX_LENGTH = 10;
+export const DEFAULT_MARQUEE_MAX_LENGTH = 9;
 export const DEFAULT_MARQUEE_SEPARATOR = '  ';
 export const DEFAULT_MARQUEE_INTERVAL_MS = 500;
 
