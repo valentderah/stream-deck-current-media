@@ -1,0 +1,63 @@
+{
+	"Name": "Media Manager",
+	"Version": "0.1.0.0",
+	"Author": "Valiantsin Dzerakh",
+	"Actions": [
+		{
+			"Name": "Counter",
+			"UUID": "ru.valentderah.media-manager.increment",
+			"Icon": "imgs/actions/counter/icon",
+			"Tooltip": "Displays a count, which increments by one on press.",
+			"PropertyInspectorPath": "ui/increment-counter.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/counter/key",
+					"TitleAlignment": "middle"
+				}
+			]
+		},
+		{
+			"Name": "Media Info",
+			"UUID": "ru.valentderah.media-manager.media-info",
+			"Icon": "imgs/actions/media/icon",
+			"Tooltip": "Displays currently playing media.",
+			"PropertyInspectorPath": "ui/media-info.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/media/key",
+					"TitleAlignment": "bottom"
+				}
+			]
+		}
+	],
+	"Category": "Media Manager",
+	"CategoryIcon": "imgs/plugin/category-icon",
+	"CodePath": "bin/plugin.js",
+	"Description": "Media Manager",
+	"Icon": "imgs/plugin/marketplace",
+	"SDKVersion": 3,
+	"Software": {
+		"MinimumVersion": "6.9"
+	},
+	"OS": [
+		{
+			"Platform": "mac",
+			"MinimumVersion": "12"
+		},
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		}
+	],
+	"Nodejs": {
+		"Version": "20",
+		"Debug": "enabled"
+	},
+	"UUID": "ru.valentderah.media-manager"
+}
