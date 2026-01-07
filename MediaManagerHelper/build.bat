@@ -5,8 +5,10 @@ echo.
 REM Переходим в папку скрипта
 cd /d "%~dp0"
 
-REM Собираем проект
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+REM Собираем проект с оптимизациями для уменьшения размера
+REM Примечание: Trimming и ReadyToRun отключены для максимального уменьшения размера
+REM ReadyToRun увеличивает размер файла за счет предкомпилированного кода
+dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -p:EnableCompressionInSingleFile=true -p:PublishReadyToRun=false -p:PublishReadyToRunComposite=false -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -p:DebugSymbols=false -p:InvariantGlobalization=true
 
 if %ERRORLEVEL% NEQ 0 (
     echo.

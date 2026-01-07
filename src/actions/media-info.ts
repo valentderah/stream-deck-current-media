@@ -22,7 +22,7 @@ type MediaInfoSettings = {
 export class MediaInfoAction extends SingletonAction<MediaInfoSettings> {
 	private static readonly UPDATE_INTERVAL_MS = 1000;
 	private static readonly MARQUEE_INTERVAL_MS = 1000;
-	private static readonly MARQUEE_MAX_LENGTH = 16;
+	private static readonly MARQUEE_MAX_LENGTH = 10;
 	private static readonly MARQUEE_SEPARATOR = '   ';
 
 
@@ -87,7 +87,7 @@ export class MediaInfoAction extends SingletonAction<MediaInfoSettings> {
 			this.stopMarquee();
 		}
 
-		if (this.currentAction) {
+		if (this.currentAction && this.currentMediaInfo) {
 			await this.updateMarqueeTitle(this.currentAction);
 		}
 	}
@@ -161,6 +161,8 @@ export class MediaInfoAction extends SingletonAction<MediaInfoSettings> {
 		const helperPath = this.getHelperPath();
 
 		if (!(await this.checkHelperExists(helperPath))) {
+			this.currentMediaInfo = null;
+			this.stopMarquee();
 			await action.setTitle(MediaInfoAction.ERROR_MESSAGES.FILE_NOT_FOUND);
 			return;
 		}

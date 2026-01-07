@@ -14,6 +14,7 @@ build/
 
 # Stream Deck files
 *.sdPlugin/bin/
+!*.sdPlugin/bin/MediaManagerHelper.exe
 *.sdPlugin/logs/
 *.sdPlugin/*.js.map
 
@@ -68,4 +69,3 @@ logs/
 # Temporary files
 *.tmp
 *.temp
-*~

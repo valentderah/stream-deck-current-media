@@ -25,35 +25,32 @@
 npm install
 ```
 
-### 2. Соберите C# утилиту
+### 2. Соберите проект
 
-**Важно:** Без этого шага плагин не будет работать!
-
-Перейдите в папку `MediaManagerHelper` и запустите:
-
-```cmd
-cd MediaManagerHelper
-build.bat
-```
-
-Скрипт автоматически соберет проект и скопирует `MediaManagerHelper.exe` в нужную папку.
-
-**Если скрипт не работает**, выполните вручную:
-
-```cmd
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
-copy /Y "bin\Release\net8.0-windows10.0.17763.0\win-x64\publish\MediaManagerHelper.exe" "..\ru.valentderah.media-manager.sdPlugin\bin\MediaManagerHelper.exe"
-```
-
-**Проверка:** Убедитесь, что файл `ru.valentderah.media-manager.sdPlugin\bin\MediaManagerHelper.exe` существует.
-
-### 3. Соберите TypeScript код
+Запустите одну команду для сборки всего проекта (C# утилита и TypeScript код):
 
 ```bash
 npm run build
 ```
 
-Это создаст `ru.valentderah.media-manager.sdPlugin/bin/plugin.js`.
+Это автоматически:
+- Соберет C# утилиту `MediaManagerHelper.exe`
+- Скопирует её в папку плагина
+- Соберет TypeScript код в `ru.valentderah.media-manager.sdPlugin/bin/plugin.js`
+
+**Важно:** Убедитесь, что установлен .NET 8.0 SDK, так как он требуется для сборки C# утилиты.
+
+### Отдельная сборка компонентов (опционально)
+
+Если нужно собрать только часть проекта:
+
+```bash
+# Только C# утилита
+npm run build:helper
+
+# Только TypeScript код
+npm run build:ts
+```
 
 ## Установка плагина
 
@@ -126,18 +123,26 @@ media-manager/
 
 Эта ошибка означает, что файл `MediaManagerHelper.exe` не найден. Решение:
 
-1. Убедитесь, что вы собрали C# проект:
-   ```cmd
-   cd MediaManagerHelper
-   build.bat
+1. Убедитесь, что вы собрали проект:
+   ```bash
+   npm run build
    ```
 
-2. Проверьте, что файл существует:
+2. Если сборка не помогла, попробуйте собрать только C# утилиту:
+   ```bash
+   npm run build:helper
+   ```
+
+3. Проверьте, что файл существует:
    ```cmd
    dir "ru.valentderah.media-manager.sdPlugin\bin\MediaManagerHelper.exe"
    ```
 
-3. Если файл отсутствует, скопируйте его вручную из папки сборки в `ru.valentderah.media-manager.sdPlugin\bin\`
+4. Если файл все еще отсутствует, выполните сборку вручную:
+   ```cmd
+   cd MediaManagerHelper
+   build.bat
+   ```
 
 ### Информация о медиа не отображается
 
