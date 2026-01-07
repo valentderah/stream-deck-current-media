@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Windows.Graphics.Imaging;
 using Windows.Media.Control;
 using Windows.Storage.Streams;
 
@@ -94,10 +95,93 @@ class Program
             try
             {
                 var thumbnailStream = await mediaProperties.Thumbnail.OpenReadAsync();
-                var buffer = new global::Windows.Storage.Streams.Buffer((uint)thumbnailStream.Size);
-                await thumbnailStream.ReadAsync(buffer, (uint)thumbnailStream.Size, InputStreamOptions.None);
+                var decoder = await BitmapDecoder.CreateAsync(thumbnailStream);
                 
-                var bytes = buffer.ToArray();
+                const int targetSize = 144;
+                var originalWidth = decoder.PixelWidth;
+                var originalHeight = decoder.PixelHeight;
+                var aspectRatio = (double)originalWidth / originalHeight;
+                
+                uint scaledWidth, scaledHeight;
+                int offsetX = 0;
+                int offsetY = 0;
+                
+                if (aspectRatio > 1.0)
+                {
+                    scaledWidth = (uint)targetSize;
+                    scaledHeight = (uint)Math.Round(targetSize / aspectRatio);
+                }
+                else
+                {
+                    scaledHeight = (uint)targetSize;
+                    scaledWidth = (uint)Math.Round(targetSize * aspectRatio);
+                    offsetX = (targetSize - (int)scaledWidth) / 2;
+                }
+                
+                var transform = new BitmapTransform
+                {
+                    ScaledWidth = scaledWidth,
+                    ScaledHeight = scaledHeight,
+                    InterpolationMode = BitmapInterpolationMode.Linear
+                };
+                
+                var pixelData = await decoder.GetPixelDataAsync(
+                    BitmapPixelFormat.Rgba8,
+                    BitmapAlphaMode.Premultiplied,
+                    transform,
+                    ExifOrientationMode.RespectExifOrientation,
+                    ColorManagementMode.ColorManageToSRgb
+                );
+                
+                var scaledPixelBytes = pixelData.DetachPixelData();
+                var finalPixels = new byte[targetSize * targetSize * 4];
+                
+                for (int y = 0; y < targetSize; y++)
+                {
+                    for (int x = 0; x < targetSize; x++)
+                    {
+                        var targetIndex = (y * targetSize + x) * 4;
+                        
+                        if (x >= offsetX && x < offsetX + scaledWidth && 
+                            y >= offsetY && y < offsetY + scaledHeight)
+                        {
+                            var sourceX = x - offsetX;
+                            var sourceY = y - offsetY;
+                            var sourceIndex = (sourceY * (int)scaledWidth + sourceX) * 4;
+                            
+                            finalPixels[targetIndex] = scaledPixelBytes[sourceIndex];
+                            finalPixels[targetIndex + 1] = scaledPixelBytes[sourceIndex + 1];
+                            finalPixels[targetIndex + 2] = scaledPixelBytes[sourceIndex + 2];
+                            finalPixels[targetIndex + 3] = scaledPixelBytes[sourceIndex + 3];
+                        }
+                        else
+                        {
+                            finalPixels[targetIndex] = 0;
+                            finalPixels[targetIndex + 1] = 0;
+                            finalPixels[targetIndex + 2] = 0;
+                            finalPixels[targetIndex + 3] = 255;
+                        }
+                    }
+                }
+                
+                using var outputStream = new InMemoryRandomAccessStream();
+                var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, outputStream);
+                encoder.SetPixelData(
+                    BitmapPixelFormat.Rgba8,
+                    BitmapAlphaMode.Premultiplied,
+                    (uint)targetSize,
+                    (uint)targetSize,
+                    96.0,
+                    96.0,
+                    finalPixels
+                );
+                await encoder.FlushAsync();
+                
+                outputStream.Seek(0);
+                var outputBuffer = new global::Windows.Storage.Streams.Buffer((uint)outputStream.Size);
+                await outputStream.ReadAsync(outputBuffer, (uint)outputStream.Size, InputStreamOptions.None);
+                
+                var bytes = outputBuffer.ToArray();
                 info.CoverArtBase64 = Convert.ToBase64String(bytes);
             }
             catch

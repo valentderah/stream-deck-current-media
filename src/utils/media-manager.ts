@@ -1,5 +1,4 @@
 import { execFile } from 'child_process';
-import { access } from 'fs/promises';
 import path from 'path';
 
 export type MediaInfo = {
@@ -24,72 +23,61 @@ export type MediaManagerResult =
 	| { success: true; data: MediaInfo }
 	| { success: false; error: MediaManagerError };
 
-function getPlatform(): 'windows' | 'darwin' | 'linux' {
-	const platform = process.platform;
-	if (platform === 'win32') return 'windows';
-	if (platform === 'darwin') return 'darwin';
-	return 'linux';
-}
-
 function getManagerExeName(): string {
-	const platform = getPlatform();
-	if (platform === 'windows') return 'MediaManager.exe';
-	if (platform === 'darwin') return 'MediaManager';
+	if (process.platform === 'win32') return 'MediaManager.exe';
 	return 'MediaManager';
 }
 
 function getManagerPath(): string {
+	return path.join(process.cwd(), 'bin', getManagerExeName());
+}
+
+function createFileNotFoundError(managerPath: string): MediaManagerError {
 	const exeName = getManagerExeName();
-	return path.join(process.cwd(), 'bin', exeName);
-}
-
-async function checkManagerExists(managerPath: string): Promise<boolean> {
-	try {
-		await access(managerPath);
-		return true;
-	} catch {
-		const platform = getPlatform();
-		const exeName = getManagerExeName();
-		console.error(`${exeName} not found at: ${managerPath}`);
-		if (platform === 'windows') {
-			console.error('Please build the C# project using: cd MediaManager/platforms/windows && build.bat');
-		} else if (platform === 'darwin') {
-			console.error('Please build the project using: cd MediaManager/platforms/macos && build.sh');
-		} else {
-			console.error('Please build the project for your platform');
-		}
-		return false;
+	console.error(`${exeName} not found at: ${managerPath}`);
+	if (process.platform === 'win32') {
+		console.error('Please build the C# project using: cd MediaManager/platforms/windows && build.bat');
+	} else if (process.platform === 'darwin') {
+		console.error('Please build the project using: cd MediaManager/platforms/macos && build.sh');
+	} else {
+		console.error('Please build the project for your platform');
 	}
-}
-
-function parseMediaInfo(jsonString: string): MediaInfo {
-	return JSON.parse(jsonString);
+	return {
+		type: 'FILE_NOT_FOUND',
+		message: `${exeName} not found at: ${managerPath}`
+	};
 }
 
 function isMediaInfoEmpty(info: MediaInfo): boolean {
 	return !info.Title && !info.Artist && (!info.Artists || info.Artists.length === 0);
 }
 
-export async function getMediaInfo(): Promise<MediaManagerResult> {
+type ExecuteResult = {
+	success: true;
+	stdout: string;
+	stderr: string;
+} | {
+	success: false;
+	error: MediaManagerError;
+};
+
+async function executeManager(args: string[] = []): Promise<ExecuteResult> {
 	const managerPath = getManagerPath();
 
-	if (!(await checkManagerExists(managerPath))) {
-		return {
-			success: false,
-			error: {
-				type: 'FILE_NOT_FOUND',
-				message: `${getManagerExeName()} not found at: ${managerPath}`
-			}
-		};
-	}
-
-	return new Promise<MediaManagerResult>((resolve) => {
-		execFile(managerPath, (error, stdout, stderr) => {
+	return new Promise<ExecuteResult>((resolve) => {
+		execFile(managerPath, args, (error, stdout, stderr) => {
 			if (error) {
 				const errorType: MediaManagerErrorType = error.code === 'ENOENT' 
 					? 'FILE_NOT_FOUND' 
 					: 'HELPER_ERROR';
 				
+				if (errorType === 'FILE_NOT_FOUND') {
+					return resolve({
+						success: false,
+						error: createFileNotFoundError(managerPath)
+					});
+				}
+
 				return resolve({
 					success: false,
 					error: {
@@ -110,88 +98,71 @@ export async function getMediaInfo(): Promise<MediaManagerResult> {
 				});
 			}
 
-			if (!stdout || stdout.trim().length === 0) {
-				return resolve({
-					success: false,
-					error: {
-						type: 'NOTHING_PLAYING',
-						message: 'No media is currently playing'
-					}
-				});
-			}
-
-			try {
-				const info = parseMediaInfo(stdout);
-
-				if (isMediaInfoEmpty(info)) {
-					return resolve({
-						success: false,
-						error: {
-							type: 'NOTHING_PLAYING',
-							message: 'No media data available'
-						}
-					});
-				}
-
-				return resolve({
-					success: true,
-					data: info
-				});
-			} catch (parseError) {
-				console.error('Failed to parse JSON from manager:', parseError);
-				return resolve({
-					success: false,
-					error: {
-						type: 'PARSING_ERROR',
-						message: parseError instanceof Error ? parseError.message : 'Failed to parse JSON'
-					}
-				});
-			}
+			return resolve({
+				success: true,
+				stdout,
+				stderr
+			});
 		});
 	});
 }
 
-export async function toggleMediaPlayPause(): Promise<MediaManagerResult> {
-	const managerPath = getManagerPath();
+export async function getMediaInfo(): Promise<MediaManagerResult> {
+	const result = await executeManager();
 
-	if (!(await checkManagerExists(managerPath))) {
+	if (!result.success) {
+		return result;
+	}
+
+	if (!result.stdout || result.stdout.trim().length === 0) {
 		return {
 			success: false,
 			error: {
-				type: 'FILE_NOT_FOUND',
-				message: `${getManagerExeName()} not found at: ${managerPath}`
+				type: 'NOTHING_PLAYING',
+				message: 'No media is currently playing'
 			}
 		};
 	}
 
-	return new Promise<MediaManagerResult>((resolve) => {
-		execFile(managerPath, ['toggle'], (error, stdout, stderr) => {
-			if (error) {
-				return resolve({
-					success: false,
-					error: {
-						type: 'HELPER_ERROR',
-						message: error.message,
-						code: error.code
-					}
-				});
-			}
+	try {
+		const info: MediaInfo = JSON.parse(result.stdout);
 
-			if (stderr) {
-				return resolve({
-					success: false,
-					error: {
-						type: 'HELPER_ERROR',
-						message: 'Manager returned stderr'
-					}
-				});
-			}
+		if (isMediaInfoEmpty(info)) {
+			return {
+				success: false,
+				error: {
+					type: 'NOTHING_PLAYING',
+					message: 'No media data available'
+				}
+			};
+		}
 
-			return resolve({
-				success: true,
-				data: {} as MediaInfo
-			});
-		});
-	});
+		return {
+			success: true,
+			data: info
+		};
+	} catch (parseError) {
+		console.error('Failed to parse JSON from manager:', parseError);
+		return {
+			success: false,
+			error: {
+				type: 'PARSING_ERROR',
+				message: parseError instanceof Error ? parseError.message : 'Failed to parse JSON'
+			}
+		};
+	}
+}
+
+export async function toggleMediaPlayPause(): Promise<MediaManagerResult> {
+	const result = await executeManager(['toggle']);
+
+	if (!result.success) {
+		return result;
+	}
+
+	return {
+		success: true,
+		data: {} as MediaInfo
+	};
 }
 
