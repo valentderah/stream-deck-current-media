@@ -1,6 +1,6 @@
 import { action, DialAction, DidReceiveSettingsEvent, KeyAction, KeyDownEvent, SingletonAction, WillAppearEvent, WillDisappearEvent } from '@elgato/streamdeck';
 import { Marquee } from '../utils/marquee';
-import { getMediaInfo, toggleMediaPlayPause, type MediaInfo, type MediaManagerErrorType } from '../utils/media-manager';
+import { mediaManagerService, toggleMediaPlayPause, type MediaInfo, type MediaManagerError, type MediaManagerResult } from '../utils/media-manager';
 
 type MediaInfoSettings = {
 	showTitle?: boolean;
@@ -10,22 +10,19 @@ type MediaInfoSettings = {
 
 @action({ UUID: 'ru.valentderah.media-manager.media-info' })
 export class MediaInfoAction extends SingletonAction<MediaInfoSettings> {
-	private static readonly UPDATE_INTERVAL_MS = 1500;
-
 	private static readonly DEFAULT_SETTINGS: MediaInfoSettings = {
 		showTitle: true,
 		showArtists: true,
 		enableMarquee: true
 	};
 
-	private static readonly ERROR_MESSAGES: Record<MediaManagerErrorType, string> = {
+	private static readonly ERROR_MESSAGES: Record<MediaManagerError['type'], string> = {
 		FILE_NOT_FOUND: 'Error\nFile Not\nFound',
 		HELPER_ERROR: 'Error\nHelper',
 		PARSING_ERROR: 'Error\nParsing',
 		NOTHING_PLAYING: 'Nothing\nPlaying'
 	} as const;
 
-	private intervalId: NodeJS.Timeout | undefined;
 	private currentAction: DialAction<MediaInfoSettings> | KeyAction<MediaInfoSettings> | undefined;
 	private readonly titleMarquee: Marquee;
 	private readonly artistsMarquee: Marquee;
@@ -36,14 +33,15 @@ export class MediaInfoAction extends SingletonAction<MediaInfoSettings> {
 		super();
 		this.titleMarquee = new Marquee();
 		this.artistsMarquee = new Marquee();
+		// @ts-expect-error - Re-assigning the onUpdate handler
+		mediaManagerService.onUpdate = this.handleMediaUpdate.bind(this);
 	}
 
 	override async onWillAppear(ev: WillAppearEvent<MediaInfoSettings>): Promise<void> {
 		this.currentAction = ev.action;
 		await this.loadSettings(ev.action);
-		await this.updateMediaInfo(ev.action);
-		this.startUpdateInterval();
-		
+		mediaManagerService.start();
+
 		const updateCallback = () => {
 			if (this.currentAction) {
 				this.updateMarqueeTitle(this.currentAction);
@@ -61,22 +59,18 @@ export class MediaInfoAction extends SingletonAction<MediaInfoSettings> {
 	}
 
 	override onWillDisappear(ev: WillDisappearEvent<MediaInfoSettings>): void | Promise<void> {
-		this.stopUpdateInterval();
+		mediaManagerService.stop();
 		this.titleMarquee.stop();
 		this.artistsMarquee.stop();
 		this.currentAction = undefined;
 		this.currentMediaInfo = null;
 	}
 
-	override async onKeyDown(ev: KeyDownEvent<MediaInfoSettings>): Promise<void> {
-		await toggleMediaPlayPause();
-		await this.updateMediaInfo(ev.action);
+	override onKeyDown(ev: KeyDownEvent<MediaInfoSettings>): void {
+		toggleMediaPlayPause();
 	}
 
 	override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<MediaInfoSettings>): Promise<void> {
-		const wasTitleEnabled = this.settings.showTitle;
-		const wasArtistsEnabled = this.settings.showArtists;
-		const wasMarqueeEnabled = this.settings.enableMarquee;
 		
 		this.settings = {
 			showTitle: ev.payload.settings.showTitle ?? MediaInfoAction.DEFAULT_SETTINGS.showTitle,
@@ -116,8 +110,9 @@ export class MediaInfoAction extends SingletonAction<MediaInfoSettings> {
 		}
 	}
 
-	private async updateMediaInfo(action: DialAction<MediaInfoSettings> | KeyAction<MediaInfoSettings>): Promise<void> {
-		const result = await getMediaInfo();
+	private async handleMediaUpdate(result: MediaManagerResult): Promise<void> {
+		if (!this.currentAction) return;
+		const action = this.currentAction;
 
 		if (!result.success) {
 			this.currentMediaInfo = null;
@@ -151,22 +146,6 @@ export class MediaInfoAction extends SingletonAction<MediaInfoSettings> {
 		}
 
 		await this.updateMarqueeTitle(action);
-	}
-
-	private startUpdateInterval(): void {
-		this.stopUpdateInterval();
-		this.intervalId = setInterval(() => {
-			if (this.currentAction) {
-				this.updateMediaInfo(this.currentAction);
-			}
-		}, MediaInfoAction.UPDATE_INTERVAL_MS);
-	}
-
-	private stopUpdateInterval(): void {
-		if (this.intervalId) {
-			clearInterval(this.intervalId);
-			this.intervalId = undefined;
-		}
 	}
 
 

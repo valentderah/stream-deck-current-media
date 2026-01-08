@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text.Json.Serialization;
@@ -15,40 +16,90 @@ class Program
 {
     static async Task Main(string[] args)
     {
-        if (args.Length > 0)
+        // Запускаем основной цикл прослушивания событий
+        await RunMediaListener();
+    }
+
+    static async Task RunMediaListener()
+    {
+        var sessionManager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
+
+        // Подписываемся на смену медиа-сессии (например, переключились с Spotify на YouTube)
+        sessionManager.CurrentSessionChanged += (s, e) => OnSessionChanged(s);
+
+        // Получаем и обрабатываем текущую сессию при запуске
+        OnSessionChanged(sessionManager);
+
+        // Цикл для прослушивания команд из stdin
+        while (true)
         {
-            switch (args[0])
+            var command = await Console.In.ReadLineAsync();
+            if (string.IsNullOrEmpty(command)) continue;
+
+            switch (command.Trim().ToLower())
             {
                 case "toggle":
                     await TogglePlayPauseAsync();
-                    return;
+                    break;
                 case "next":
                     await NextTrackAsync();
-                    return;
+                    break;
                 case "previous":
                     await PreviousTrackAsync();
-                    return;
+                    break;
             }
         }
+    }
 
-        try
+    private static GlobalSystemMediaTransportControlsSession? _currentSession;
+
+    private static void OnSessionChanged(GlobalSystemMediaTransportControlsSessionManager manager)
+    {
+        // Отписываемся от событий старой сессии
+        if (_currentSession != null)
         {
-            var mediaInfo = await GetCurrentMediaInfoAsync();
-            var json = JsonSerializer.Serialize(mediaInfo, MediaInfoJsonContext.Default.MediaInfo);
-            Console.WriteLine(json);
+            _currentSession.MediaPropertiesChanged -= OnMediaPropertiesChanged;
+            _currentSession.PlaybackInfoChanged -= OnPlaybackInfoChanged;
         }
-        catch (Exception)
+
+        _currentSession = manager.GetCurrentSession();
+
+        // Подписываемся на события новой сессии
+        if (_currentSession != null)
         {
-            var emptyInfo = new MediaInfo();
-            var json = JsonSerializer.Serialize(emptyInfo, MediaInfoJsonContext.Default.MediaInfo);
-            Console.WriteLine(json);
+            _currentSession.MediaPropertiesChanged += OnMediaPropertiesChanged;
+            _currentSession.PlaybackInfoChanged += OnPlaybackInfoChanged;
         }
+
+        // Принудительно обновляем информацию
+        UpdateCurrentMediaInfo();
+    }
+
+    private static void OnPlaybackInfoChanged(GlobalSystemMediaTransportControlsSession session, PlaybackInfoChangedEventArgs args)
+    {
+        UpdateCurrentMediaInfo();
+    }
+
+    private static void OnMediaPropertiesChanged(GlobalSystemMediaTransportControlsSession session, MediaPropertiesChangedEventArgs args)
+    {
+        UpdateCurrentMediaInfo();
+    }
+
+    private static async void UpdateCurrentMediaInfo()
+    {
+        var mediaInfo = await GetCurrentMediaInfoAsync();
+        var json = JsonSerializer.Serialize(mediaInfo, MediaInfoJsonContext.Default.MediaInfo);
+        
+        // Отправляем JSON в stdout. Добавляем разделитель новой строки для парсинга на стороне TS.
+        await Console.Out.WriteLineAsync(json);
     }
 
     static async Task<MediaInfo> GetCurrentMediaInfoAsync()
     {
         var sessionManager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
-        var activeSession = sessionManager.GetCurrentSession();
+        
+        // Улучшенный поиск активной сессии
+        var activeSession = FindBestMediaSession(sessionManager);
 
         if (activeSession == null)
         {
@@ -183,17 +234,36 @@ class Program
         return info;
     }
 
+    private static GlobalSystemMediaTransportControlsSession? FindBestMediaSession(GlobalSystemMediaTransportControlsSessionManager manager)
+    {
+        // 1. Сначала пытаемся получить сессию, которую система считает текущей
+        var currentSession = manager.GetCurrentSession();
+        if (currentSession != null)
+        {
+            var playbackInfo = currentSession.GetPlaybackInfo();
+            // 2. Если она активна - отлично, это наш клиент
+            if (playbackInfo.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
+            {
+                return currentSession;
+            }
+        }
+
+        // 3. Если текущая сессия неактивна, ищем любую другую играющую сессию
+        var allSessions = manager.GetSessions();
+        var playingSession = allSessions.FirstOrDefault(s => s.GetPlaybackInfo().PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing);
+        if (playingSession != null)
+        {
+            return playingSession;
+        }
+
+        // 4. Если играющих нет, возвращаем "текущую" (даже если она на паузе) или первую попавшуюся
+        return currentSession ?? allSessions.FirstOrDefault();
+    }
+
     static async Task<GlobalSystemMediaTransportControlsSession?> GetActiveSessionAsync()
     {
-        try
-        {
-            var sessionManager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
-            return sessionManager.GetCurrentSession();
-        }
-        catch
-        {
-            return null;
-        }
+        var sessionManager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
+        return FindBestMediaSession(sessionManager);
     }
 
     static async Task TogglePlayPauseAsync()
