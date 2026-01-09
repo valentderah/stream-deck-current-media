@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text.Json.Serialization;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Graphics.Imaging;
 using Windows.Media.Control;
@@ -14,6 +15,9 @@ namespace MediaManager.Windows;
 
 class Program
 {
+    private static readonly SemaphoreSlim _updateSemaphore = new SemaphoreSlim(1, 1);
+    private static CancellationTokenSource? _lastUpdateCancellation;
+
     static async Task Main(string[] args)
     {
         // Запускаем основной цикл прослушивания событий
@@ -72,9 +76,12 @@ class Program
     }
 
     private static GlobalSystemMediaTransportControlsSession? _currentSession;
+    private static GlobalSystemMediaTransportControlsSessionManager? _sessionManager;
 
     private static void OnSessionChanged(GlobalSystemMediaTransportControlsSessionManager manager)
     {
+        _sessionManager = manager;
+        
         // Отписываемся от событий старой сессии
         if (_currentSession != null)
         {
@@ -92,59 +99,72 @@ class Program
             _currentSession.PlaybackInfoChanged += OnPlaybackInfoChanged;
         }
 
-        // Принудительно обновляем информацию (fire-and-forget с обработкой ошибок)
-        _ = UpdateCurrentMediaInfoAsync().ContinueWith(task =>
-        {
-            if (task.IsFaulted)
-            {
-                // Игнорируем ошибки обновления медиа-информации
-            }
-        }, TaskContinuationOptions.OnlyOnFaulted);
+        // Принудительно обновляем информацию
+        _ = UpdateCurrentMediaInfoAsync();
     }
 
     private static void OnPlaybackInfoChanged(GlobalSystemMediaTransportControlsSession session, PlaybackInfoChangedEventArgs args)
     {
-        // Fire-and-forget с обработкой ошибок
-        _ = UpdateCurrentMediaInfoAsync().ContinueWith(task =>
-        {
-            if (task.IsFaulted)
-            {
-                // Игнорируем ошибки обновления медиа-информации
-            }
-        }, TaskContinuationOptions.OnlyOnFaulted);
+        _ = UpdateCurrentMediaInfoAsync();
     }
 
     private static void OnMediaPropertiesChanged(GlobalSystemMediaTransportControlsSession session, MediaPropertiesChangedEventArgs args)
     {
-        // Fire-and-forget с обработкой ошибок
-        _ = UpdateCurrentMediaInfoAsync().ContinueWith(task =>
-        {
-            if (task.IsFaulted)
-            {
-                // Игнорируем ошибки обновления медиа-информации
-            }
-        }, TaskContinuationOptions.OnlyOnFaulted);
+        _ = UpdateCurrentMediaInfoAsync();
     }
 
     private static async Task UpdateCurrentMediaInfoAsync()
     {
+        // Отменяем предыдущий незавершённый вызов
+        _lastUpdateCancellation?.Cancel();
+        _lastUpdateCancellation?.Dispose();
+        _lastUpdateCancellation = new CancellationTokenSource();
+        
+        var cancellationToken = _lastUpdateCancellation.Token;
+
+        // Используем семафор, чтобы обрабатывать только один вызов за раз
+        // Проверяем доступность семафора без блокировки
+        if (!await _updateSemaphore.WaitAsync(0))
+        {
+            return; // Уже выполняется обновление, новый вызов отменяется
+        }
+
         try
         {
+            if (cancellationToken.IsCancellationRequested)
+                return;
+
             var mediaInfo = await GetCurrentMediaInfoAsync();
+            
+            if (cancellationToken.IsCancellationRequested)
+                return;
+
             var json = JsonSerializer.Serialize(mediaInfo, MediaInfoJsonContext.Default.MediaInfo);
+            
+            if (cancellationToken.IsCancellationRequested)
+                return;
             
             // Отправляем JSON в stdout. Добавляем разделитель новой строки для парсинга на стороне TS.
             await Console.Out.WriteLineAsync(json);
+        }
+        catch (OperationCanceledException)
+        {
+            // Игнорируем отмену
         }
         catch
         {
             // Игнорируем ошибки при выводе, чтобы не крашить приложение
         }
+        finally
+        {
+            _updateSemaphore.Release();
+        }
     }
 
     static async Task<MediaInfo> GetCurrentMediaInfoAsync()
     {
-        var sessionManager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
+        // Используем сохранённый sessionManager вместо создания нового
+        var sessionManager = _sessionManager ?? await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
         
         // Улучшенный поиск активной сессии
         var activeSession = FindBestMediaSession(sessionManager);
@@ -200,6 +220,7 @@ class Program
                 {
                     scaledWidth = (uint)targetSize;
                     scaledHeight = (uint)Math.Round(targetSize / aspectRatio);
+                    offsetY = (targetSize - (int)scaledHeight) / 2;
                 }
                 else
                 {
@@ -275,7 +296,7 @@ class Program
                 info.CoverArtBase64 = Convert.ToBase64String(bytes);
 
                 // Разделяем изображение на 4 части (2x2)
-                const int partSize = targetSize / 2; // 144x144 для каждой части
+                const int partSize = targetSize / 2; // 72x72 для каждой части
                 var parts = new List<byte[]>(4);
 
                 for (int row = 0; row < 2; row++)
@@ -369,7 +390,7 @@ class Program
 
     static async Task<GlobalSystemMediaTransportControlsSession?> GetActiveSessionAsync()
     {
-        var sessionManager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
+        var sessionManager = _sessionManager ?? await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
         return FindBestMediaSession(sessionManager);
     }
 
