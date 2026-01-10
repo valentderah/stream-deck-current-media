@@ -5,7 +5,7 @@
 	"Actions": [
 		{
 			"Name": "Now Playing",
-			"UUID": "ru.valentderah.media-manager.media-info",
+			"UUID": "ru.valentderah.current-media.media-info",
 			"Icon": "imgs/actions/media/info",
 			"Tooltip": "Displays currently playing media.",
 			"PropertyInspectorPath": "ui/media-info.html",
@@ -20,7 +20,7 @@
 		},
 		{
 			"Name": "Next Media",
-			"UUID": "ru.valentderah.media-manager.media-next",
+			"UUID": "ru.valentderah.current-media.media-next",
 			"Icon": "imgs/actions/media/next",
 			"Tooltip": "Skip to next track.",
 			"Controllers": [
@@ -35,7 +35,7 @@
 		},
 		{
 			"Name": "Previous Media",
-			"UUID": "ru.valentderah.media-manager.media-previous",
+			"UUID": "ru.valentderah.current-media.media-previous",
 			"Icon": "imgs/actions/media/prev",
 			"Tooltip": "Skip to previous track.",
 			"Controllers": [
@@ -50,7 +50,7 @@
 		},
 		{
 			"Name": "Play/Pause",
-			"UUID": "ru.valentderah.media-manager.media-play-pause",
+			"UUID": "ru.valentderah.current-media.media-play-pause",
 			"Icon": "imgs/actions/media/play-pause",
 			"Tooltip": "Toggle play/pause.",
 			"Controllers": [
@@ -84,5 +84,5 @@
 		"Version": "20",
 		"Debug": "enabled"
 	},
-	"UUID": "ru.valentderah.media-manager"
+	"UUID": "ru.valentderah.current-media"
 }

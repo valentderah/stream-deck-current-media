@@ -7,7 +7,7 @@ import path from "node:path";
 import url from "node:url";
 
 const isWatching = !!process.env.ROLLUP_WATCH;
-const sdPlugin = "ru.valentderah.media-manager.sdPlugin";
+const sdPlugin = "ru.valentderah.current-media.sdPlugin";
 
 /**
  * @type {import('rollup').RollupOptions}

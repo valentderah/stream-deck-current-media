@@ -17,7 +17,7 @@ echo Build successful!
 echo.
 
 set PUBLISH_PATH=bin\Release\net8.0-windows10.0.17763.0\win-x64\publish\MediaManager.exe
-set TARGET_DIR=%~dp0..\..\..\ru.valentderah.media-manager.sdPlugin\bin
+set TARGET_DIR=%~dp0..\..\..\ru.valentderah.current-media.sdPlugin\bin
 set TARGET_PATH=%TARGET_DIR%\MediaManager.exe
 
 if not exist "%PUBLISH_PATH%" (

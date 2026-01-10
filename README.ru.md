@@ -2,16 +2,16 @@
 
 # Media Manager
 
-<img width="553" height="419" alt="image" src="ru.valentderah.media-manager.sdPlugin/imgs/banner.png" />
+<img width="553" height="419" alt="image" src="ru.valentderah.current-media.sdPlugin/imgs/banner.png" />
 
 Этот плагин создан для пользователей Stream Deck. Он отображает информацию о текущем воспроизводимом медиа.
 
 ### Ручная установка
 1. Скачайте последнюю версию со страницы [Releases](https://github.com/valentderah/media-manager/releases)
-2. Распакуйте папку `ru.valentderah.media-manager.sdPlugin`
+2. Распакуйте папку `ru.valentderah.current-media.sdPlugin`
 3. Откройте приложение Stream Deck
 4. Перейдите в магазин Stream Deck (меню из трёх точек) и нажмите "Больше действий" → "Установить с диска"
-5. Выберите папку `ru.valentderah.media-manager.sdPlugin`
+5. Выберите папку `ru.valentderah.current-media.sdPlugin`
 
 ### Плагин в магазине
 Скоро в магазине Stream Deck...

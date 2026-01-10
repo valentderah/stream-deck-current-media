@@ -45,7 +45,7 @@ type ActionHandlerInfo = {
 	currentMediaInfo: MediaInfo | null;
 };
 
-@action({ UUID: 'ru.valentderah.media-manager.media-info' })
+@action({ UUID: 'ru.valentderah.current-media.media-info' })
 export class MediaInfoAction extends SingletonAction<MediaInfoSettings> {
 	private static readonly DEFAULT_SETTINGS: MediaInfoSettings = {
 		textDisplayMode: 'both',
