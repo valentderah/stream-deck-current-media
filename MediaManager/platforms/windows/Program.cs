@@ -20,9 +20,8 @@ class Program
     private static GlobalSystemMediaTransportControlsSession? _currentSession;
     private static GlobalSystemMediaTransportControlsSessionManager? _sessionManager;
     private static readonly HashSet<string> _subscribedSessions = new HashSet<string>();
-    private static Timer? _sessionCheckTimer;
-    private static string? _lastMediaTitle;
-    private static string? _lastMediaArtist;
+    private static string? _lastTrackTitle;
+    private static string? _lastTrackArtist;
 
     static async Task Main(string[] args)
     {
@@ -37,11 +36,6 @@ class Program
         sessionManager.SessionsChanged += OnSessionsChanged;
         OnSessionChanged(sessionManager);
         SubscribeToAllSessions(sessionManager);
-
-        _sessionCheckTimer = new Timer(_ =>
-        {
-            _ = Task.Run(async () => await CheckAndUpdateActiveSession(sessionManager));
-        }, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
 
         while (true)
         {
@@ -60,33 +54,14 @@ class Program
                 {
                     case "toggle":
                         await TogglePlayPauseAsync();
-                        _ = Task.Run(async () =>
-                        {
-                            await Task.Delay(300);
-                            await UpdateCurrentMediaInfoAsync();
-                        });
                         break;
                     case "next":
                         await NextTrackAsync();
-                        _ = Task.Run(async () =>
-                        {
-                            for (int i = 0; i < 6; i++)
-                            {
-                                await Task.Delay(400 + i * 200);
-                                await UpdateCurrentMediaInfoAsync();
-                            }
-                        });
+                        _ = Task.Run(async () => await WaitForTrackChangeAsync());
                         break;
                     case "previous":
                         await PreviousTrackAsync();
-                        _ = Task.Run(async () =>
-                        {
-                            for (int i = 0; i < 6; i++)
-                            {
-                                await Task.Delay(400 + i * 200);
-                                await UpdateCurrentMediaInfoAsync();
-                            }
-                        });
+                        _ = Task.Run(async () => await WaitForTrackChangeAsync());
                         break;
                     case "update":
                         _ = UpdateCurrentMediaInfoAsync();
@@ -103,13 +78,41 @@ class Program
             }
         }
 
-        _sessionCheckTimer?.Dispose();
     }
 
     private static void OnSessionsChanged(GlobalSystemMediaTransportControlsSessionManager manager, SessionsChangedEventArgs args)
     {
         SubscribeToAllSessions(manager);
         OnSessionChanged(manager);
+    }
+
+    private static void SubscribeToSession(GlobalSystemMediaTransportControlsSession session)
+    {
+        try
+        {
+            var sessionId = session.SourceAppUserModelId;
+            if (!_subscribedSessions.Contains(sessionId))
+            {
+                session.MediaPropertiesChanged += OnMediaPropertiesChanged;
+                session.PlaybackInfoChanged += OnPlaybackInfoChanged;
+                _subscribedSessions.Add(sessionId);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private static void UnsubscribeFromSession(GlobalSystemMediaTransportControlsSession session)
+    {
+        try
+        {
+            session.MediaPropertiesChanged -= OnMediaPropertiesChanged;
+            session.PlaybackInfoChanged -= OnPlaybackInfoChanged;
+        }
+        catch
+        {
+        }
     }
 
     private static void SubscribeToAllSessions(GlobalSystemMediaTransportControlsSessionManager manager)
@@ -119,19 +122,7 @@ class Program
             var allSessions = manager.GetSessions();
             foreach (var session in allSessions)
             {
-                try
-                {
-                    var sessionId = session.SourceAppUserModelId;
-                    if (!_subscribedSessions.Contains(sessionId))
-                    {
-                        session.MediaPropertiesChanged += OnMediaPropertiesChanged;
-                        session.PlaybackInfoChanged += OnPlaybackInfoChanged;
-                        _subscribedSessions.Add(sessionId);
-                    }
-                }
-                catch
-                {
-                }
+                SubscribeToSession(session);
             }
         }
         catch
@@ -145,76 +136,17 @@ class Program
         
         if (_currentSession != null)
         {
-            try
-            {
-                _currentSession.MediaPropertiesChanged -= OnMediaPropertiesChanged;
-                _currentSession.PlaybackInfoChanged -= OnPlaybackInfoChanged;
-            }
-            catch
-            {
-            }
+            UnsubscribeFromSession(_currentSession);
         }
 
         _currentSession = FindBestMediaSession(manager);
 
         if (_currentSession != null)
         {
-            try
-            {
-                var sessionId = _currentSession.SourceAppUserModelId;
-                if (!_subscribedSessions.Contains(sessionId))
-                {
-                    _currentSession.MediaPropertiesChanged += OnMediaPropertiesChanged;
-                    _currentSession.PlaybackInfoChanged += OnPlaybackInfoChanged;
-                    _subscribedSessions.Add(sessionId);
-                }
-            }
-            catch
-            {
-            }
+            SubscribeToSession(_currentSession);
         }
 
         _ = UpdateCurrentMediaInfoAsync();
-    }
-
-    private static async Task CheckAndUpdateActiveSession(GlobalSystemMediaTransportControlsSessionManager manager)
-    {
-        try
-        {
-            var bestSession = FindBestMediaSession(manager);
-            if (bestSession != _currentSession)
-            {
-                OnSessionChanged(manager);
-                return;
-            }
-
-            if (bestSession != null && _currentSession == bestSession)
-            {
-                try
-                {
-                    var mediaProperties = await bestSession.TryGetMediaPropertiesAsync();
-                    if (mediaProperties != null)
-                    {
-                        var currentTitle = mediaProperties.Title ?? string.Empty;
-                        var currentArtist = mediaProperties.Artist ?? string.Empty;
-                        
-                        if ((!string.IsNullOrEmpty(currentTitle) || !string.IsNullOrEmpty(currentArtist)) &&
-                            (currentTitle != _lastMediaTitle || currentArtist != _lastMediaArtist))
-                        {
-                            _lastMediaTitle = currentTitle;
-                            _lastMediaArtist = currentArtist;
-                            _ = UpdateCurrentMediaInfoAsync();
-                        }
-                    }
-                }
-                catch
-                {
-                }
-            }
-        }
-        catch
-        {
-        }
     }
 
     private static void OnPlaybackInfoChanged(GlobalSystemMediaTransportControlsSession session, PlaybackInfoChangedEventArgs args)
@@ -232,7 +164,7 @@ class Program
         _lastUpdateCancellation?.Cancel();
         _lastUpdateCancellation?.Dispose();
         _lastUpdateCancellation = new CancellationTokenSource();
-        
+
         var cancellationToken = _lastUpdateCancellation.Token;
 
         if (!await _updateSemaphore.WaitAsync(0))
@@ -246,15 +178,15 @@ class Program
                 return;
 
             var mediaInfo = await GetCurrentMediaInfoAsync();
-            
+
             if (cancellationToken.IsCancellationRequested)
                 return;
 
             var json = JsonSerializer.Serialize(mediaInfo, MediaInfoJsonContext.Default.MediaInfo);
-            
+
             if (cancellationToken.IsCancellationRequested)
                 return;
-            
+
             await Console.Out.WriteLineAsync(json);
         }
         catch (OperationCanceledException)
@@ -321,8 +253,8 @@ class Program
             var title = mediaProperties?.Title ?? string.Empty;
             var artist = mediaProperties?.Artist ?? string.Empty;
 
-            _lastMediaTitle = title;
-            _lastMediaArtist = artist;
+            _lastTrackTitle = title;
+            _lastTrackArtist = artist;
 
             var info = new MediaInfo
             {
@@ -706,6 +638,44 @@ class Program
         }
         catch
         {
+        }
+    }
+
+    private static async Task WaitForTrackChangeAsync()
+    {
+        var lastTitle = _lastTrackTitle;
+        var lastArtist = _lastTrackArtist;
+        var attempts = 0;
+        var maxAttempts = 5;
+
+        while (attempts < maxAttempts)
+        {
+            await Task.Delay(300);
+            await UpdateCurrentMediaInfoAsync();
+
+            var session = await GetActiveSessionAsync();
+            if (session != null)
+            {
+                try
+                {
+                    var props = await session.TryGetMediaPropertiesAsync();
+                    if (props != null)
+                    {
+                        var currentTitle = props.Title ?? string.Empty;
+                        var currentArtist = props.Artist ?? string.Empty;
+
+                        if ((!string.IsNullOrEmpty(currentTitle) || !string.IsNullOrEmpty(currentArtist)) &&
+                            (currentTitle != lastTitle || currentArtist != lastArtist))
+                        {
+                            break;
+                        }
+                    }
+                }
+                catch
+                {
+                }
+            }
+            attempts++;
         }
     }
 }
