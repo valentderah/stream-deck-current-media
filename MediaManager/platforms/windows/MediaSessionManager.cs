@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.Media.Control;
+using MediaManager.Windows.Imaging;
 
 namespace MediaManager.Windows;
 
@@ -239,6 +241,34 @@ class MediaSessionManager
                 {
                     await Console.Error.WriteLineAsync($"Error processing thumbnail: {ex.Message}");
                 }
+            }
+
+            try
+            {
+                var appUserModelId = activeSession.SourceAppUserModelId;
+                
+                if (!string.IsNullOrEmpty(appUserModelId))
+                {
+                    dynamic? sourceAppInfo = null;
+                    try
+                    {
+                        var sourceAppInfoProperty = activeSession.GetType().GetProperty("SourceAppInfo");
+                        if (sourceAppInfoProperty != null)
+                        {
+                            sourceAppInfo = sourceAppInfoProperty.GetValue(activeSession);
+                        }
+                    }
+                    catch
+                    {
+                        // Property не существует или недоступно
+                    }
+
+                    info.AppIconBase64 = await AppIconProcessor.GetAppIconBase64Async(appUserModelId, sourceAppInfo);
+                }
+            }
+            catch (Exception ex)
+            {
+                await Console.Error.WriteLineAsync($"Error getting app icon: {ex.Message}");
             }
 
             return info;

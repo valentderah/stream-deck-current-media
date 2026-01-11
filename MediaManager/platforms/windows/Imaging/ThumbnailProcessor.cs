@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
 
-namespace MediaManager.Windows;
+namespace MediaManager.Windows.Imaging;
 
 static class ThumbnailProcessor
 {
@@ -43,7 +43,7 @@ static class ThumbnailProcessor
             var scaledPixelBytes = pixelData.DetachPixelData();
             var finalPixels = CreateCenteredImage(scaledPixelBytes, scaledWidth, scaledHeight, TargetSize, offsetX, offsetY);
 
-            info.CoverArtBase64 = await EncodeImageToBase64Async(finalPixels, TargetSize);
+            info.CoverArtBase64 = await ImageUtils.EncodeImageToBase64Async(finalPixels, TargetSize);
 
             var parts = await SplitImageIntoPartsAsync(finalPixels, TargetSize);
             if (parts.Count >= 4)
@@ -123,28 +123,6 @@ static class ThumbnailProcessor
         }
 
         return finalPixels;
-    }
-
-    private static async Task<string> EncodeImageToBase64Async(byte[] pixels, int size)
-    {
-        using var outputStream = new InMemoryRandomAccessStream();
-        var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, outputStream);
-        encoder.SetPixelData(
-            BitmapPixelFormat.Rgba8,
-            BitmapAlphaMode.Premultiplied,
-            (uint)size,
-            (uint)size,
-            96.0,
-            96.0,
-            pixels
-        );
-        await encoder.FlushAsync();
-
-        outputStream.Seek(0);
-        var outputBuffer = new global::Windows.Storage.Streams.Buffer((uint)outputStream.Size);
-        await outputStream.ReadAsync(outputBuffer, (uint)outputStream.Size, InputStreamOptions.None);
-
-        return Convert.ToBase64String(outputBuffer.ToArray());
     }
 
     private static async Task<List<byte[]>> SplitImageIntoPartsAsync(byte[] sourcePixels, int sourceSize)

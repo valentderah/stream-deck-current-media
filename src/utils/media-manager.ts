@@ -14,6 +14,7 @@ export type MediaInfo = {
 	CoverArtPart2Base64?: string;
 	CoverArtPart3Base64?: string;
 	CoverArtPart4Base64?: string;
+	AppIconBase64?: string;
 };
 
 export type MediaManagerErrorType = 'FILE_NOT_FOUND' | 'HELPER_ERROR' | 'PARSING_ERROR' | 'NOTHING_PLAYING';

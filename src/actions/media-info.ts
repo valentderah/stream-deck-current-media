@@ -18,7 +18,7 @@ import {
 	type MediaManagerError,
 	type MediaManagerResult
 } from '../utils/media-manager';
-import {generatePlaceholderImage} from '../utils/image-utils';
+import {generatePlaceholderImage, applyOverlayToImage} from '../utils/image-utils';
 import {
 	IMAGE_SIZE_FULL,
 	IMAGE_SIZE_SINGLE_CELL,
@@ -28,6 +28,7 @@ import {
 type ActionType = 'toggle' | 'next' | 'previous' | 'none';
 type TextDisplayMode = 'both' | 'artists' | 'title' | 'none';
 type PositionMode = 'none' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+type OverlayDisplayMode = 'none' | 'icon' | 'status' | 'both';
 
 type MediaInfoSettings = {
 	textDisplayMode?: TextDisplayMode;
@@ -36,6 +37,7 @@ type MediaInfoSettings = {
 	enableMarquee?: boolean;
 	position?: PositionMode;
 	action?: ActionType;
+	overlayDisplayMode?: OverlayDisplayMode;
 };
 
 type ActionHandlerInfo = {
@@ -51,7 +53,8 @@ export class MediaInfoAction extends SingletonAction<MediaInfoSettings> {
 		textDisplayMode: 'both',
 		enableMarquee: true,
 		position: 'none',
-		action: 'toggle'
+		action: 'toggle',
+		overlayDisplayMode: 'none'
 	};
 
 	private static readonly ERROR_MESSAGES: Record<MediaManagerError['type'], string> = {
@@ -160,7 +163,8 @@ export class MediaInfoAction extends SingletonAction<MediaInfoSettings> {
 				textDisplayMode: settings.textDisplayMode,
 				enableMarquee: settings.enableMarquee ?? MediaInfoAction.DEFAULT_SETTINGS.enableMarquee,
 				position: settings.position ?? MediaInfoAction.DEFAULT_SETTINGS.position,
-				action: settings.action ?? MediaInfoAction.DEFAULT_SETTINGS.action
+				action: settings.action ?? MediaInfoAction.DEFAULT_SETTINGS.action,
+				overlayDisplayMode: settings.overlayDisplayMode ?? MediaInfoAction.DEFAULT_SETTINGS.overlayDisplayMode
 			};
 		}
 
@@ -182,7 +186,8 @@ export class MediaInfoAction extends SingletonAction<MediaInfoSettings> {
 			textDisplayMode,
 			enableMarquee: settings.enableMarquee ?? MediaInfoAction.DEFAULT_SETTINGS.enableMarquee,
 			position: settings.position ?? MediaInfoAction.DEFAULT_SETTINGS.position,
-			action: settings.action ?? MediaInfoAction.DEFAULT_SETTINGS.action
+			action: settings.action ?? MediaInfoAction.DEFAULT_SETTINGS.action,
+			overlayDisplayMode: settings.overlayDisplayMode ?? MediaInfoAction.DEFAULT_SETTINGS.overlayDisplayMode
 		};
 	}
 
@@ -267,14 +272,21 @@ export class MediaInfoAction extends SingletonAction<MediaInfoSettings> {
 	private async updateActionImage(action: DialAction<MediaInfoSettings> | KeyAction<MediaInfoSettings>, handler: ActionHandlerInfo, info: MediaInfo): Promise<void> {
 		const { settings } = handler;
 		const position = settings.position ?? 'none';
+		const overlayMode = settings.overlayDisplayMode ?? 'none';
 
 		if (position === 'none') {
+			let imageDataUrl: string;
 			if (info.CoverArtBase64) {
-				await action.setImage(`data:image/png;base64,${info.CoverArtBase64}`);
+				imageDataUrl = `data:image/png;base64,${info.CoverArtBase64}`;
 			} else {
-				const placeholderImage = generatePlaceholderImage(IMAGE_SIZE_FULL);
-				await action.setImage(placeholderImage);
+				imageDataUrl = generatePlaceholderImage(IMAGE_SIZE_FULL);
 			}
+			
+			if (overlayMode !== 'none') {
+				imageDataUrl = await applyOverlayToImage(imageDataUrl, overlayMode, info, IMAGE_SIZE_FULL);
+			}
+			
+			await action.setImage(imageDataUrl);
 			return;
 		}
 
@@ -294,14 +306,20 @@ export class MediaInfoAction extends SingletonAction<MediaInfoSettings> {
 				break;
 		}
 
+		let imageDataUrl: string;
 		if (partBase64) {
-			await action.setImage(`data:image/png;base64,${partBase64}`);
+			imageDataUrl = `data:image/png;base64,${partBase64}`;
 		} else if (info.CoverArtBase64) {
-			await action.setImage(`data:image/png;base64,${info.CoverArtBase64}`);
+			imageDataUrl = `data:image/png;base64,${info.CoverArtBase64}`;
 		} else {
-			const placeholderImage = generatePlaceholderImage(IMAGE_SIZE_SINGLE_CELL);
-			await action.setImage(placeholderImage);
+			imageDataUrl = generatePlaceholderImage(IMAGE_SIZE_SINGLE_CELL);
 		}
+		
+		if (overlayMode !== 'none') {
+			imageDataUrl = await applyOverlayToImage(imageDataUrl, overlayMode, info, IMAGE_SIZE_SINGLE_CELL);
+		}
+		
+		await action.setImage(imageDataUrl);
 	}
 
 	private getArtistText(info: MediaInfo): string {

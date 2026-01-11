@@ -6,6 +6,8 @@
   <assembly fullname="Windows.Media.Control" preserve="all" />
   <assembly fullname="Windows.Graphics.Imaging" preserve="all" />
   <assembly fullname="Windows.Storage.Streams" preserve="all" />
+  <assembly fullname="Windows.ApplicationModel" preserve="all" />
+  <assembly fullname="Windows.Management.Deployment" preserve="all" />
   
   <!-- System.Text.Json - сохраняем используемые типы и их зависимости -->
   <assembly fullname="System.Text.Json">

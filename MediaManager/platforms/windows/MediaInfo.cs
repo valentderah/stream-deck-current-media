@@ -17,6 +17,7 @@ class MediaInfo
     public string CoverArtPart2Base64 { get; set; } = string.Empty;
     public string CoverArtPart3Base64 { get; set; } = string.Empty;
     public string CoverArtPart4Base64 { get; set; } = string.Empty;
+    public string AppIconBase64 { get; set; } = string.Empty;
 }
 
 [JsonSourceGenerationOptions(WriteIndented = false)]
