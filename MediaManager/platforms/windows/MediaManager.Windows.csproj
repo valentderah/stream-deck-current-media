@@ -13,8 +13,8 @@
     <TrimMode>full</TrimMode>
     <TrimAnalysis>false</TrimAnalysis>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <PublishReadyToRun>false</PublishReadyToRun>
-    <PublishReadyToRunComposite>false</PublishReadyToRunComposite>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <PublishReadyToRunComposite>true</PublishReadyToRunComposite>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
     <InvariantGlobalization>true</InvariantGlobalization>
