@@ -7,32 +7,28 @@
     <Nullable>enable</Nullable>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
     <PublishTrimmed>true</PublishTrimmed>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <TrimMode>full</TrimMode>
     <TrimAnalysis>false</TrimAnalysis>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <PublishReadyToRunComposite>true</PublishReadyToRunComposite>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
     <InvariantGlobalization>true</InvariantGlobalization>
     <AssemblyName>MediaManager</AssemblyName>
-
-    <!-- AOT включен по умолчанию -->
-    <PublishAot Condition="'$(PublishAot)' == ''">true</PublishAot>
-    <EventSourceSupport>false</EventSourceSupport>
-    <DefineConstants Condition="'$(PublishAot)' != 'false'">AOT</DefineConstants>
     
-    <!-- Настройки для режима без AOT (только если явно отключен) -->
-    <PublishSingleFile Condition="'$(PublishAot)' == 'false'">true</PublishSingleFile>
-    <EnableCompressionInSingleFile Condition="'$(PublishAot)' == 'false'">true</EnableCompressionInSingleFile>
-    <IncludeNativeLibrariesForSelfExtract Condition="'$(PublishAot)' == 'false'">true</IncludeNativeLibrariesForSelfExtract>
-    <PublishReadyToRun Condition="'$(PublishAot)' == 'false'">true</PublishReadyToRun>
-    <PublishReadyToRunComposite Condition="'$(PublishAot)' == 'false'">true</PublishReadyToRunComposite>
+    <!-- Дополнительные оптимизации размера -->
+    <EventSourceSupport>false</EventSourceSupport>
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
     <EnableUnsafeUTF7Encoding>false</EnableUnsafeUTF7Encoding>
     <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
-    <ControlFlowGuard>false</ControlFlowGuard>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
 
@@ -45,24 +41,5 @@
   <ItemGroup>
     <TrimmerRootDescriptor Include="ILLink.Descriptors.xml" />
   </ItemGroup>
-
-  <!-- Опциональное сжатие UPX после публикации -->
-  <PropertyGroup>
-    <UpxPath Condition="'$(UpxPath)' == ''">$(MSBuildProjectDirectory)\tools\upx\upx.exe</UpxPath>
-    <EnableUpxCompression Condition="'$(EnableUpxCompression)' == ''">false</EnableUpxCompression>
-  </PropertyGroup>
-
-  <Target Name="CompressWithUpx" AfterTargets="Publish" Condition="'$(EnableUpxCompression)' == 'true' AND Exists('$(UpxPath)')">
-    <Message Text="Compressing $(AssemblyName).exe with UPX..." Importance="high" />
-    <Exec 
-      Command="&quot;$(UpxPath)&quot; --best --lzma &quot;$(PublishDir)$(AssemblyName).exe&quot;" 
-      WorkingDirectory="$(PublishDir)"
-      ContinueOnError="true"
-      IgnoreExitCode="true">
-      <Output TaskParameter="ExitCode" PropertyName="UpxExitCode" />
-    </Exec>
-    <Message Text="UPX compression completed (exit code: $(UpxExitCode))" Importance="high" Condition="'$(UpxExitCode)' == '0'" />
-    <Warning Text="UPX compression failed or skipped. File may be incompatible with UPX." Condition="'$(UpxExitCode)' != '0'" />
-  </Target>
 
 </Project>

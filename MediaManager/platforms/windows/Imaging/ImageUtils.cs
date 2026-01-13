@@ -1,4 +1,7 @@
 using System;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
@@ -166,119 +169,57 @@ static class ImageUtils
 
     public static async Task<string> ConvertIconToBase64Async(string exePath, int size)
     {
-        IntPtr hIcon = IntPtr.Zero;
-        IntPtr hIconResized = IntPtr.Zero;
-
         try
         {
-            hIcon = ExtractIcon(IntPtr.Zero, exePath, 0);
-            if (hIcon == IntPtr.Zero) return string.Empty;
+            using var icon = Icon.ExtractAssociatedIcon(exePath);
+            if (icon == null)
+            {
+                return string.Empty;
+            }
 
-            hIconResized = CopyImage(hIcon, IMAGE_ICON, size, size, LR_DEFAULTCOLOR);
-            if (hIconResized == IntPtr.Zero) return string.Empty;
+            using var bitmap = new Bitmap(icon.ToBitmap(), size, size);
+            var bitmapData = bitmap.LockBits(new Rectangle(0, 0, bitmap.Width, bitmap.Height),
+                ImageLockMode.ReadOnly,
+                PixelFormat.Format32bppArgb);
 
-            if (!GetIconInfo(hIconResized, out var iconInfo)) return string.Empty;
-
-            byte[]? pixelBytes = null;
-            IntPtr hdc = IntPtr.Zero;
             try
             {
-                hdc = GetDC(IntPtr.Zero);
-                var bmi = new BitmapInfo
-                {
-                    biSize = Marshal.SizeOf(typeof(BitmapInfo)),
-                    biWidth = size,
-                    biHeight = -size, // Top-down DIB
-                    biPlanes = 1,
-                    biBitCount = 32,
-                    biCompression = 0 // BI_RGB
-                };
+                var width = bitmap.Width;
+                var height = bitmap.Height;
+                var stride = bitmapData.Stride;
 
-                pixelBytes = new byte[size * size * 4];
-                if (GetDIBits(hdc, iconInfo.hbmColor, 0, (uint)size, pixelBytes, ref bmi, 0) == 0)
+                var bgraBytes = new byte[stride * height];
+                Marshal.Copy(bitmapData.Scan0, bgraBytes, 0, bgraBytes.Length);
+
+                var rgbaBytes = new byte[width * height * 4];
+
+                for (int y = 0; y < height; y++)
                 {
-                    return string.Empty;
+                    int srcRowOffset = y * stride;
+                    int dstRowOffset = y * width * 4;
+
+                    for (int x = 0; x < width; x++)
+                    {
+                        int srcIndex = srcRowOffset + (x * 4);
+                        int dstIndex = dstRowOffset + (x * 4);
+
+                        rgbaBytes[dstIndex] = bgraBytes[srcIndex + 2];
+                        rgbaBytes[dstIndex + 1] = bgraBytes[srcIndex + 1];
+                        rgbaBytes[dstIndex + 2] = bgraBytes[srcIndex];
+                        rgbaBytes[dstIndex + 3] = bgraBytes[srcIndex + 3];
+                    }
                 }
+
+                return await EncodeImageToBase64Async(rgbaBytes, width);
             }
             finally
             {
-                if (iconInfo.hbmColor != IntPtr.Zero) DeleteObject(iconInfo.hbmColor);
-                if (iconInfo.hbmMask != IntPtr.Zero) DeleteObject(iconInfo.hbmMask);
-                if (hdc != IntPtr.Zero) ReleaseDC(IntPtr.Zero, hdc);
+                bitmap.UnlockBits(bitmapData);
             }
-
-            var rgbaBytes = new byte[size * size * 4];
-            for (int i = 0; i < pixelBytes.Length; i += 4)
-            {
-                rgbaBytes[i] = pixelBytes[i + 2];     // R
-                rgbaBytes[i + 1] = pixelBytes[i + 1]; // G
-                rgbaBytes[i + 2] = pixelBytes[i];     // B
-                rgbaBytes[i + 3] = pixelBytes[i + 3]; // A
-            }
-
-            return await EncodeImageToBase64Async(rgbaBytes, size);
         }
-        finally
+        catch
         {
-            if (hIconResized != IntPtr.Zero) DestroyIcon(hIconResized);
-            if (hIcon != IntPtr.Zero) DestroyIcon(hIcon);
+            return string.Empty;
         }
     }
-
-    #region Win32 Interop
-
-    [DllImport("shell32.dll", CharSet = CharSet.Auto)]
-    private static extern IntPtr ExtractIcon(IntPtr hInst, string lpszExeFileName, int nIconIndex);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool DestroyIcon(IntPtr hIcon);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr CopyImage(IntPtr hImage, uint uType, int cxDesired, int cyDesired, uint fuFlags);
-
-    [DllImport("user32.dll")]
-    private static extern bool GetIconInfo(IntPtr hIcon, out IconInfo piconinfo);
-
-    [DllImport("gdi32.dll")]
-    private static extern int GetDIBits(IntPtr hdc, IntPtr hbm, uint start, uint cLines, byte[] lpvBits, ref BitmapInfo lpbmi, uint usage);
-
-    [DllImport("gdi32.dll")]
-    private static extern bool DeleteObject(IntPtr hObject);
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetDC(IntPtr hWnd);
-
-    [DllImport("user32.dll")]
-    private static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
-
-    private const uint IMAGE_ICON = 1;
-    private const uint LR_DEFAULTCOLOR = 0x0000;
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct IconInfo
-    {
-        public bool fIcon;
-        public int xHotspot;
-        public int yHotspot;
-        public IntPtr hbmMask;
-        public IntPtr hbmColor;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct BitmapInfo
-    {
-        public int biSize;
-        public int biWidth;
-        public int biHeight;
-        public short biPlanes;
-        public short biBitCount;
-        public int biCompression;
-        public int biSizeImage;
-        public int biXPelsPerMeter;
-        public int biYPelsPerMeter;
-        public int biClrUsed;
-        public int biClrImportant;
-    }
-
-    #endregion
 }
