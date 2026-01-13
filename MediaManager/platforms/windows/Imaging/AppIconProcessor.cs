@@ -43,7 +43,7 @@ static class AppIconProcessor
     }
 
 
-    public static async Task<string> GetAppIconBase64Async(string appUserModelId, dynamic? sourceAppInfo)
+    public static async Task<string> GetAppIconBase64Async(string appUserModelId)
     {
         if (string.IsNullOrEmpty(appUserModelId))
         {
@@ -57,42 +57,6 @@ static class AppIconProcessor
 
         try
         {
-            if (sourceAppInfo != null)
-            {
-                try
-                {
-                    var displayInfo = sourceAppInfo?.DisplayInfo;
-                    if (displayInfo != null)
-                    {
-                        var logoStreamRef = displayInfo.GetLogo(new global::Windows.Foundation.Size(IconSize, IconSize));
-                        if (logoStreamRef != null)
-                        {
-                            using var stream = await logoStreamRef.OpenReadAsync();
-                            if (stream != null && stream.Size > 0)
-                            {
-                                var decoder = await BitmapDecoder.CreateAsync(stream!);
-                                var transform = new BitmapTransform
-                                {
-                                    ScaledWidth = IconSize,
-                                    ScaledHeight = IconSize,
-                                    InterpolationMode = BitmapInterpolationMode.Linear
-                                };
-                                var pixelData = await decoder.GetPixelDataAsync(BitmapPixelFormat.Rgba8, BitmapAlphaMode.Premultiplied, transform, ExifOrientationMode.RespectExifOrientation, ColorManagementMode.ColorManageToSRgb);
-                                var pixels = pixelData.DetachPixelData();
-                                var result = await ImageUtils.EncodeImageToBase64Async(pixels, IconSize);
-
-                                _iconCache.TryAdd(appUserModelId, result);
-                                return result;
-                            }
-                        }
-                    }
-                }
-                catch
-                {
-                    // ignored
-                }
-            }
-
             var packageManager = new global::Windows.Management.Deployment.PackageManager();
             var packageFamilyName = appUserModelId.Split('!').FirstOrDefault();
 

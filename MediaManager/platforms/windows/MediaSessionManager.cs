@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -246,24 +245,10 @@ class MediaSessionManager
             try
             {
                 var appUserModelId = activeSession.SourceAppUserModelId;
-                
+
                 if (!string.IsNullOrEmpty(appUserModelId))
                 {
-                    dynamic? sourceAppInfo = null;
-                    try
-                    {
-                        var sourceAppInfoProperty = activeSession.GetType().GetProperty("SourceAppInfo");
-                        if (sourceAppInfoProperty != null)
-                        {
-                            sourceAppInfo = sourceAppInfoProperty.GetValue(activeSession);
-                        }
-                    }
-                    catch
-                    {
-                        // Property не существует или недоступно
-                    }
-
-                    info.AppIconBase64 = await AppIconProcessor.GetAppIconBase64Async(appUserModelId, sourceAppInfo);
+                    info.AppIconBase64 = await AppIconProcessor.GetAppIconBase64Async(appUserModelId);
                 }
             }
             catch (Exception ex)
