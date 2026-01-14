@@ -67,14 +67,14 @@
 		{
 			"Name": "Seek Forward",
 			"UUID": "ru.valentderah.current-media.media-forward",
-			"Icon": "imgs/actions/media/next",
+			"Icon": "imgs/actions/media/forward",
 			"Tooltip": "Seek forward 10 seconds.",
 			"Controllers": [
 				"Keypad"
 			],
 			"States": [
 				{
-					"Image": "imgs/actions/media/key/next",
+					"Image": "imgs/actions/media/key/forward",
 					"TitleAlignment": "bottom"
 				}
 			]
@@ -82,14 +82,14 @@
 		{
 			"Name": "Seek Backward",
 			"UUID": "ru.valentderah.current-media.media-backward",
-			"Icon": "imgs/actions/media/prev",
+			"Icon": "imgs/actions/media/backward",
 			"Tooltip": "Seek backward 10 seconds.",
 			"Controllers": [
 				"Keypad"
 			],
 			"States": [
 				{
-					"Image": "imgs/actions/media/key/prev",
+					"Image": "imgs/actions/media/key/backward",
 					"TitleAlignment": "bottom"
 				}
 			]

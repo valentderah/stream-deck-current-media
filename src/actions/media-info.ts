@@ -14,6 +14,8 @@ import {
 	toggleMediaPlayPause,
 	nextMedia,
 	previousMedia,
+	seekForward,
+	seekBackward,
 	type MediaInfo,
 	type MediaManagerError,
 	type MediaManagerResult
@@ -25,7 +27,7 @@ import {
 	RELOAD_DELAY, PROCESS_DELAY
 } from '../utils/constants';
 
-type ActionType = 'toggle' | 'next' | 'previous' | 'none';
+type ActionType = 'toggle' | 'next' | 'previous' | 'forward' | 'backward' | 'none';
 type TextDisplayMode = 'both' | 'artists' | 'title' | 'none';
 type PositionMode = 'none' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 type OverlayDisplayMode = 'none' | 'icon' | 'status' | 'both';
@@ -133,6 +135,12 @@ export class MediaInfoAction extends SingletonAction<MediaInfoSettings> {
 				break;
 			case 'previous':
 				previousMedia();
+				break;
+			case 'forward':
+				seekForward();
+				break;
+			case 'backward':
+				seekBackward();
 				break;
 			case 'none':
 				break;
