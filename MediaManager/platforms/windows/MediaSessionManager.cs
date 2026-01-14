@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.Foundation;
 using Windows.Media.Control;
 using MediaManager.Windows.Imaging;
 
@@ -51,6 +52,12 @@ class MediaSessionManager
                         break;
                     case "previous":
                         await PreviousTrackAsync();                        
+                        break;
+                    case "forward":
+                        await SeekForwardAsync();
+                        break;
+                    case "backward":
+                        await SeekBackwardAsync();
                         break;
                     case "update":
                         await UpdateCurrentMediaInfoAsync();
@@ -390,6 +397,52 @@ class MediaSessionManager
         catch (Exception ex)
         {
             await Console.Error.WriteLineAsync($"Error skipping previous: {ex.Message}");
+        }
+    }
+
+    static async Task SeekForwardAsync()
+    {
+        await SeekAsync(TimeSpan.FromSeconds(10));
+    }
+
+    static async Task SeekBackwardAsync()
+    {
+        await SeekAsync(TimeSpan.FromSeconds(-10));
+    }
+
+    private static async Task SeekAsync(TimeSpan offset)
+    {
+        try
+        {
+            var activeSession = await GetActiveSessionAsync();
+            if (activeSession == null) return;
+
+            var playbackInfo = activeSession.GetPlaybackInfo();
+            if (playbackInfo == null || !playbackInfo.Controls.IsPlaybackPositionEnabled)
+            {
+                return;
+            }
+
+            var timelineProperties = activeSession.GetTimelineProperties();
+            if (timelineProperties == null) return;
+
+            var newPosition = timelineProperties.Position + offset;
+
+            if (newPosition < timelineProperties.StartTime)
+            {
+                newPosition = timelineProperties.StartTime;
+            }
+
+            if (timelineProperties.EndTime > TimeSpan.Zero && newPosition > timelineProperties.EndTime)
+            {
+                newPosition = timelineProperties.EndTime;
+            }
+
+            await activeSession.TryChangePlaybackPositionAsync(newPosition.Ticks);
+        }
+        catch (Exception ex)
+        {
+            await Console.Error.WriteLineAsync($"Error seeking: {ex.Message}");
         }
     }
 }

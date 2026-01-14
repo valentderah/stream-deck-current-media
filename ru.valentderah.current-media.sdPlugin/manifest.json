@@ -63,6 +63,36 @@
 					"TitleAlignment": "bottom"
 				}
 			]
+		},
+		{
+			"Name": "Seek Forward",
+			"UUID": "ru.valentderah.current-media.media-forward",
+			"Icon": "imgs/actions/media/next",
+			"Tooltip": "Seek forward 10 seconds.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/media/key/next",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Seek Backward",
+			"UUID": "ru.valentderah.current-media.media-backward",
+			"Icon": "imgs/actions/media/prev",
+			"Tooltip": "Seek backward 10 seconds.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/media/key/prev",
+					"TitleAlignment": "bottom"
+				}
+			]
 		}
 	],
 	"Category": "Current Media",

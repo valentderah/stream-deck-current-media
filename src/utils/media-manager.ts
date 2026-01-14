@@ -29,7 +29,7 @@ export type MediaManagerResult =
 	| { success: true; data: MediaInfo }
 	| { success: false; error: MediaManagerError };
 
-type MediaCommand = 'toggle' | 'next' | 'previous' | 'update';
+type MediaCommand = 'toggle' | 'next' | 'previous' | 'forward' | 'backward' | 'update';
 
 class MediaManagerService {
 	private process: ChildProcessWithoutNullStreams | null = null;
@@ -232,4 +232,12 @@ export function nextMedia(): void {
 
 export function previousMedia(): void {
 	mediaManagerService.sendCommand('previous');
+}
+
+export function seekForward(): void {
+	mediaManagerService.sendCommand('forward');
+}
+
+export function seekBackward(): void {
+	mediaManagerService.sendCommand('backward');
 }
