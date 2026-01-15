@@ -1,6 +1,6 @@
 {
-	"Name": "Current Media",
-	"Version": "0.9.5.0",
+	"Name": "Current Media (Now Playing)",
+	"Version": "1.0.0.0",
 	"Author": "Valiantsin Dzerakh",
 	"Actions": [
 		{
@@ -95,10 +95,10 @@
 			]
 		}
 	],
-	"Category": "Current Media",
+	"Category": "Current Media (Now Playing)",
 	"CategoryIcon": "imgs/plugin/category-icon",
 	"CodePath": "bin/plugin.js",
-	"Description": "Know and control your video and audio. This plugin displays an icon for the active media player (Spotify, Chrome, etc.) and allows you to control playback directly from Stream Deck.",
+	"Description": "Know and control your video and audio. This plugin displays an icon for the active media player (Chrome, Spotify, Yandex Music, etc.) and allows you to control playback directly from Stream Deck.",
 	"Icon": "imgs/plugin/marketplace",
 	"SDKVersion": 3,
 	"Software": {
@@ -108,10 +108,6 @@
 		{
 			"Platform": "windows",
 			"MinimumVersion": "10"
-		},
-		{
-			"Platform": "mac",
-			"MinimumVersion": "13.0"
 		}
 	],
 	"Nodejs": {
