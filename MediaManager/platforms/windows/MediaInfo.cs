@@ -1,10 +1,8 @@
 using System.Collections.Generic;
-using System.Text.Json.Serialization;
-using System.Text.Json;
 
-namespace MediaManager.Windows;
+namespace CurrentMedia;
 
-class MediaInfo
+public class MediaInfo
 {
     public string Title { get; set; } = string.Empty;
     public string Artist { get; set; } = string.Empty;
@@ -18,10 +16,6 @@ class MediaInfo
     public string CoverArtPart3Base64 { get; set; } = string.Empty;
     public string CoverArtPart4Base64 { get; set; } = string.Empty;
     public string AppIconBase64 { get; set; } = string.Empty;
-}
 
-[JsonSourceGenerationOptions(WriteIndented = false)]
-[JsonSerializable(typeof(MediaInfo))]
-internal partial class MediaInfoJsonContext : JsonSerializerContext
-{
+    public bool HasMediaData => !string.IsNullOrEmpty(Title) || !string.IsNullOrEmpty(Artist) || Artists.Count > 0;
 }

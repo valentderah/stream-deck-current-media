@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
 
-namespace MediaManager.Windows.Imaging;
+namespace CurrentMedia.Imaging;
 
 static class ThumbnailProcessor
 {

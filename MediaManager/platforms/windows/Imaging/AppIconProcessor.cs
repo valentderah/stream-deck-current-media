@@ -4,11 +4,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Windows.ApplicationModel;
 using Windows.Graphics.Imaging;
-using Windows.Media.Control;
 
-namespace MediaManager.Windows.Imaging;
+namespace CurrentMedia.Imaging;
 
 static class AppIconProcessor
 {
