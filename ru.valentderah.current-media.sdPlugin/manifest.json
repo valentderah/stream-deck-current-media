@@ -1,6 +1,6 @@
 {
 	"Name": "Current Media (Now Playing)",
-	"Version": "1.0.0.0",
+	"Version": "1.1.0.0",
 	"Author": "Valiantsin Dzerakh",
 	"Actions": [
 		{
@@ -97,7 +97,7 @@
 	],
 	"Category": "Current Media (Now Playing)",
 	"CategoryIcon": "imgs/plugin/category-icon",
-	"CodePath": "bin/plugin.js",
+	"CodePath": "CurrentMedia.exe",
 	"Description": "This plugin displays cover for the active media player (Chrome, YouTube, Spotify, Yandex Music, etc.) and allows you to control playback directly from Stream Deck.",
 	"Icon": "imgs/plugin/marketplace",
 	"SDKVersion": 3,
@@ -110,9 +110,5 @@
 			"MinimumVersion": "10"
 		}
 	],
-	"Nodejs": {
-		"Version": "20",
-		"Debug": "enabled"
-	},
 	"UUID": "ru.valentderah.current-media"
 }

@@ -1,14 +1,13 @@
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
 
-namespace MediaManager.Windows.Imaging;
+namespace CurrentMedia.Imaging;
 
 static class ImageUtils
 {

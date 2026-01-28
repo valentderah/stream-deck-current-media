@@ -1,87 +1,60 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Reflection;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Windows.Foundation;
 using Windows.Media.Control;
-using MediaManager.Windows.Imaging;
+using BarRaider.SdTools;
+using CurrentMedia.Imaging;
 
-namespace MediaManager.Windows;
+namespace CurrentMedia;
 
-class MediaSessionManager
+public class MediaSessionManager
 {
-    private static readonly SemaphoreSlim _updateSemaphore = new SemaphoreSlim(1, 1);
-    private static GlobalSystemMediaTransportControlsSessionManager? _sessionManager;
-    private static readonly HashSet<string> _subscribedSessions = new HashSet<string>();
-    private static GlobalSystemMediaTransportControlsSession? _lastActiveSession;
-    private static Timer? _updateDebounceTimer;
-    private static readonly object _debounceLock = new object();
+    private static readonly Lazy<MediaSessionManager> _instance = new(() => new MediaSessionManager());
+    public static MediaSessionManager Instance => _instance.Value;
 
-    public static async Task RunAsync()
+    private readonly SemaphoreSlim _updateSemaphore = new(1, 1);
+    private GlobalSystemMediaTransportControlsSessionManager? _sessionManager;
+    private readonly HashSet<string> _subscribedSessions = new();
+    private GlobalSystemMediaTransportControlsSession? _lastActiveSession;
+    private Timer? _updateDebounceTimer;
+    private readonly object _debounceLock = new();
+    private bool _isInitialized;
+
+    public event EventHandler<MediaInfo>? MediaInfoChanged;
+
+    private MediaSessionManager() { }
+
+    public async Task InitializeAsync()
     {
-        var sessionManager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
-        _sessionManager = sessionManager;
-        sessionManager.CurrentSessionChanged += (s, e) => OnSessionChanged(s);
-        sessionManager.SessionsChanged += (s, e) => OnSessionsChanged(s);
-        SubscribeToAllSessions(sessionManager);
+        if (_isInitialized) return;
 
-        while (true)
+        try
         {
-            try
-            {
-                var command = await Console.In.ReadLineAsync();
-                
-                if (command == null)
-                {
-                    break;
-                }
-                
-                if (string.IsNullOrEmpty(command)) continue;
+            _sessionManager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
+            _sessionManager.CurrentSessionChanged += (s, e) => OnSessionChanged();
+            _sessionManager.SessionsChanged += (s, e) => OnSessionsChanged();
+            SubscribeToAllSessions(_sessionManager);
+            _isInitialized = true;
 
-                switch (command.Trim().ToLower())
-                {
-                    case "toggle":
-                        await TogglePlayPauseAsync();
-                        break;
-                    case "next":
-                        await NextTrackAsync();                        
-                        break;
-                    case "previous":
-                        await PreviousTrackAsync();                        
-                        break;
-                    case "forward":
-                        await SeekForwardAsync();
-                        break;
-                    case "backward":
-                        await SeekBackwardAsync();
-                        break;
-                    case "update":
-                        await UpdateCurrentMediaInfoAsync();
-                        break;
-                }
-            }
-            catch (IOException)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                await Console.Error.WriteLineAsync($"Error in command loop: {ex.Message}");
-                continue;
-            }
+            await UpdateAndNotifyAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Failed to initialize MediaSessionManager: {ex.Message}");
         }
     }
 
-    private static void OnSessionsChanged(GlobalSystemMediaTransportControlsSessionManager manager)
+    private void OnSessionsChanged()
     {
-        SubscribeToAllSessions(manager);
+        if (_sessionManager != null)
+        {
+            SubscribeToAllSessions(_sessionManager);
+        }
     }
 
-    private static void SubscribeToSession(GlobalSystemMediaTransportControlsSession session)
+    private void SubscribeToSession(GlobalSystemMediaTransportControlsSession session)
     {
         try
         {
@@ -95,11 +68,11 @@ class MediaSessionManager
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Failed to subscribe to session: {ex.Message}");
+            Logger.Instance.LogMessage(TracingLevel.WARN, $"Failed to subscribe to session: {ex.Message}");
         }
     }
 
-    private static void SubscribeToAllSessions(GlobalSystemMediaTransportControlsSessionManager manager)
+    private void SubscribeToAllSessions(GlobalSystemMediaTransportControlsSessionManager manager)
     {
         try
         {
@@ -111,50 +84,54 @@ class MediaSessionManager
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Failed to subscribe to all sessions: {ex.Message}");
+            Logger.Instance.LogMessage(TracingLevel.WARN, $"Failed to subscribe to all sessions: {ex.Message}");
         }
     }
 
-    private static void OnSessionChanged(GlobalSystemMediaTransportControlsSessionManager manager)
+    private void OnSessionChanged()
     {
         DebouncedUpdate(100);
     }
 
-    private static void OnPlaybackInfoChanged(GlobalSystemMediaTransportControlsSession session, PlaybackInfoChangedEventArgs args)
+    private void OnPlaybackInfoChanged(GlobalSystemMediaTransportControlsSession session, PlaybackInfoChangedEventArgs args)
     {
         DebouncedUpdate(100);
     }
 
-    private static void OnMediaPropertiesChanged(GlobalSystemMediaTransportControlsSession session, MediaPropertiesChangedEventArgs args)
+    private void OnMediaPropertiesChanged(GlobalSystemMediaTransportControlsSession session, MediaPropertiesChangedEventArgs args)
     {
         DebouncedUpdate(100);
     }
 
-    private static void DebouncedUpdate(int delayMs)
+    private void DebouncedUpdate(int delayMs)
     {
         lock (_debounceLock)
         {
             _updateDebounceTimer?.Dispose();
             _updateDebounceTimer = new Timer(_ =>
             {
-                _ = UpdateCurrentMediaInfoAsync();
+                _ = UpdateAndNotifyAsync();
             }, null, delayMs, Timeout.Infinite);
         }
     }
 
-    private static async Task UpdateCurrentMediaInfoAsync()
+    public async Task RequestUpdateAsync()
+    {
+        await UpdateAndNotifyAsync();
+    }
+
+    private async Task UpdateAndNotifyAsync()
     {
         await _updateSemaphore.WaitAsync();
 
         try
         {
             var mediaInfo = await GetCurrentMediaInfoAsync();
-            var json = JsonSerializer.Serialize(mediaInfo, MediaInfoJsonContext.Default.MediaInfo);
-            await Console.Out.WriteLineAsync(json);
+            MediaInfoChanged?.Invoke(this, mediaInfo);
         }
         catch (Exception ex)
         {
-            await Console.Error.WriteLineAsync($"Error updating media info: {ex.Message}");
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error updating media info: {ex.Message}");
         }
         finally
         {
@@ -162,12 +139,16 @@ class MediaSessionManager
         }
     }
 
-    static async Task<MediaInfo> GetCurrentMediaInfoAsync()
+    private async Task<MediaInfo> GetCurrentMediaInfoAsync()
     {
         try
         {
-            var sessionManager = _sessionManager ?? await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
-            var activeSession = FindBestMediaSession(sessionManager);
+            if (_sessionManager == null)
+            {
+                return new MediaInfo();
+            }
+
+            var activeSession = FindBestMediaSession(_sessionManager);
 
             if (activeSession == null)
             {
@@ -183,7 +164,7 @@ class MediaSessionManager
             }
             catch (Exception ex)
             {
-                await Console.Error.WriteLineAsync($"Error getting media properties: {ex.Message}");
+                Logger.Instance.LogMessage(TracingLevel.WARN, $"Error getting media properties: {ex.Message}");
             }
 
             try
@@ -192,7 +173,7 @@ class MediaSessionManager
             }
             catch (Exception ex)
             {
-                await Console.Error.WriteLineAsync($"Error getting playback info: {ex.Message}");
+                Logger.Instance.LogMessage(TracingLevel.WARN, $"Error getting playback info: {ex.Message}");
             }
 
             if (playbackInfo == null)
@@ -210,7 +191,7 @@ class MediaSessionManager
                 }
                 catch (Exception ex)
                 {
-                    await Console.Error.WriteLineAsync($"Error parsing artists: {ex.Message}");
+                    Logger.Instance.LogMessage(TracingLevel.WARN, $"Error parsing artists: {ex.Message}");
                 }
             }
 
@@ -232,13 +213,13 @@ class MediaSessionManager
                     _ => "Stopped"
                 }
             };
-            
+
             if (info.Status == "Playing")
             {
                 _lastActiveSession = activeSession;
             }
 
-            if (mediaProperties != null && mediaProperties.Thumbnail != null)
+            if (mediaProperties?.Thumbnail != null)
             {
                 try
                 {
@@ -246,14 +227,14 @@ class MediaSessionManager
                 }
                 catch (Exception ex)
                 {
-                    await Console.Error.WriteLineAsync($"Error processing thumbnail: {ex.Message}");
+                    Logger.Instance.LogMessage(TracingLevel.WARN, $"Error processing thumbnail: {ex.Message}");
                 }
             }
 
             try
             {
                 var appUserModelId = activeSession.SourceAppUserModelId;
-                
+
                 if (!string.IsNullOrEmpty(appUserModelId))
                 {
                     dynamic? sourceAppInfo = null;
@@ -267,7 +248,7 @@ class MediaSessionManager
                     }
                     catch
                     {
-                        // Property не существует или недоступно
+                        // Property doesn't exist or is inaccessible
                     }
 
                     info.AppIconBase64 = await AppIconProcessor.GetAppIconBase64Async(appUserModelId, sourceAppInfo);
@@ -275,19 +256,19 @@ class MediaSessionManager
             }
             catch (Exception ex)
             {
-                await Console.Error.WriteLineAsync($"Error getting app icon: {ex.Message}");
+                Logger.Instance.LogMessage(TracingLevel.WARN, $"Error getting app icon: {ex.Message}");
             }
 
             return info;
         }
         catch (Exception ex)
         {
-            await Console.Error.WriteLineAsync($"Error in GetCurrentMediaInfoAsync: {ex.Message}");
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error in GetCurrentMediaInfoAsync: {ex.Message}");
             return new MediaInfo();
         }
     }
 
-    private static GlobalSystemMediaTransportControlsSession? FindBestMediaSession(GlobalSystemMediaTransportControlsSessionManager manager)
+    private GlobalSystemMediaTransportControlsSession? FindBestMediaSession(GlobalSystemMediaTransportControlsSessionManager manager)
     {
         try
         {
@@ -295,23 +276,21 @@ class MediaSessionManager
             GlobalSystemMediaTransportControlsSession? pausedLastActive = null;
             GlobalSystemMediaTransportControlsSession? pausedCurrent = null;
             GlobalSystemMediaTransportControlsSession? anyPaused = null;
-            
-            // 1. Абсолютный приоритет: любая играющая сессия.
+
             foreach (var session in allSessions)
             {
                 try
                 {
                     var playbackInfo = session.GetPlaybackInfo();
                     if (playbackInfo == null) continue;
-                    
+
                     if (playbackInfo.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
                     {
-                        return session; // Нашли играющую, немедленно возвращаем.
+                        return session;
                     }
-                    
+
                     if (playbackInfo.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Paused)
                     {
-                        // Собираем кандидатов на случай, если играющих нет
                         if (_lastActiveSession != null && session.SourceAppUserModelId == _lastActiveSession.SourceAppUserModelId)
                         {
                             pausedLastActive = session;
@@ -321,38 +300,37 @@ class MediaSessionManager
                         {
                             pausedCurrent = session;
                         }
-                        if (anyPaused == null)
-                        {
-                            anyPaused = session;
-                        }
+                        anyPaused ??= session;
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.Error.WriteLine($"Error finding best session: {ex.Message}");
+                    Logger.Instance.LogMessage(TracingLevel.WARN, $"Error finding best session: {ex.Message}");
                 }
             }
 
-            // 2. Если играющих нет, возвращаем в порядке приоритета "на паузе".
-            return pausedLastActive 
-                ?? pausedCurrent 
-                ?? anyPaused 
+            return pausedLastActive
+                ?? pausedCurrent
+                ?? anyPaused
                 ?? allSessions.FirstOrDefault();
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Critical error in FindBestMediaSession: {ex.Message}");
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Critical error in FindBestMediaSession: {ex.Message}");
             return null;
         }
     }
 
-    static async Task<GlobalSystemMediaTransportControlsSession?> GetActiveSessionAsync()
+    private async Task<GlobalSystemMediaTransportControlsSession?> GetActiveSessionAsync()
     {
-        var sessionManager = _sessionManager ?? await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
-        return FindBestMediaSession(sessionManager);
+        if (_sessionManager == null)
+        {
+            await InitializeAsync();
+        }
+        return _sessionManager != null ? FindBestMediaSession(_sessionManager) : null;
     }
 
-    static async Task TogglePlayPauseAsync()
+    public async Task TogglePlayPauseAsync()
     {
         try
         {
@@ -364,11 +342,11 @@ class MediaSessionManager
         }
         catch (Exception ex)
         {
-            await Console.Error.WriteLineAsync($"Error toggling play/pause: {ex.Message}");
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error toggling play/pause: {ex.Message}");
         }
     }
 
-    static async Task NextTrackAsync()
+    public async Task NextTrackAsync()
     {
         try
         {
@@ -380,11 +358,11 @@ class MediaSessionManager
         }
         catch (Exception ex)
         {
-            await Console.Error.WriteLineAsync($"Error skipping next: {ex.Message}");
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error skipping next: {ex.Message}");
         }
     }
 
-    static async Task PreviousTrackAsync()
+    public async Task PreviousTrackAsync()
     {
         try
         {
@@ -396,21 +374,21 @@ class MediaSessionManager
         }
         catch (Exception ex)
         {
-            await Console.Error.WriteLineAsync($"Error skipping previous: {ex.Message}");
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error skipping previous: {ex.Message}");
         }
     }
 
-    static async Task SeekForwardAsync()
+    public async Task SeekForwardAsync()
     {
         await SeekAsync(TimeSpan.FromSeconds(10));
     }
 
-    static async Task SeekBackwardAsync()
+    public async Task SeekBackwardAsync()
     {
         await SeekAsync(TimeSpan.FromSeconds(-10));
     }
 
-    private static async Task SeekAsync(TimeSpan offset)
+    private async Task SeekAsync(TimeSpan offset)
     {
         try
         {
@@ -442,7 +420,7 @@ class MediaSessionManager
         }
         catch (Exception ex)
         {
-            await Console.Error.WriteLineAsync($"Error seeking: {ex.Message}");
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error seeking: {ex.Message}");
         }
     }
 }

@@ -9,37 +9,31 @@
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-    <TrimMode>full</TrimMode>
-    <TrimAnalysis>false</TrimAnalysis>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <PublishReadyToRun>true</PublishReadyToRun>
-    <PublishReadyToRunComposite>true</PublishReadyToRunComposite>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
+    <AssemblyName>CurrentMedia</AssemblyName>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <AssemblyName>MediaManager</AssemblyName>
-    
-    <!-- Дополнительные оптимизации размера -->
-    <EventSourceSupport>false</EventSourceSupport>
-    <UseSystemResourceKeys>true</UseSystemResourceKeys>
-    <EnableUnsafeUTF7Encoding>false</EnableUnsafeUTF7Encoding>
-    <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
-    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <PackageReference Include="StreamDeck-Tools" Version="6.3.2" />
+    <PackageReference Include="System.Drawing.Common" Version="9.0.10" />
   </ItemGroup>
 
-  <!-- Настройки обрезки -->
+  <!-- Preserve types needed by StreamDeck-Tools (reflection-based) -->
   <ItemGroup>
-    <TrimmerRootAssembly Include="MediaManager" />
+    <TrimmerRootAssembly Include="StreamDeckTools" />
+    <TrimmerRootAssembly Include="Newtonsoft.Json" />
+    <TrimmerRootAssembly Include="Microsoft.CSharp" />
   </ItemGroup>
 
-  <!-- Файл дескрипторов для обрезки -->
-  <ItemGroup>
-    <TrimmerRootDescriptor Include="ILLink.Descriptors.xml" />
-  </ItemGroup>
+  <!-- Suppress trim warnings for reflection-heavy dependencies -->
+  <PropertyGroup>
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+  </PropertyGroup>
 
 </Project>

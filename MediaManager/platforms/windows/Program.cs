@@ -1,11 +1,14 @@
-using System.Threading.Tasks;
+using BarRaider.SdTools;
 
-namespace MediaManager.Windows;
+namespace CurrentMedia;
 
 class Program
 {
-    static async Task Main(string[] args)
+    static void Main(string[] args)
     {
-        await MediaSessionManager.RunAsync();
+        // Uncomment this line for debugging
+        // while (!System.Diagnostics.Debugger.IsAttached) { System.Threading.Thread.Sleep(100); }
+
+        SDWrapper.Run(args);
     }
 }
