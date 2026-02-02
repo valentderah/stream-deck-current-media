@@ -13,7 +13,7 @@ A Stream Deck plugin that displays information about the currently playing media
 - **Playback Controls**: Dedicated actions for Play/Pause, Next, and Previous track.
 - **Seek Functionality**: Actions for seeking forward/backward.
 - **Fully Customizable**: Configure what happens on key press, whether to display the media source, title, or artist, etc.
-- **Wide Compatibility**: Works with any application that integrates with the Windows Media Session API (e.g., Spotify, Chrome, Yandex Music).
+- **Wide Compatibility**: Works with any application that integrates with the System Media Transport Controls (SMTC) (e.g., Spotify, Chrome, Yandex Music).
 
 ## Requirements
 
