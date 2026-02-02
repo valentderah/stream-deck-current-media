@@ -26,4 +26,4 @@ A Stream Deck plugin that displays information about the currently playing media
 2. Double-click the downloaded `.streamDeckPlugin` file to install.
 
 ## Plugin in the Store
-Coming soon to the Elgato Marketplace.
+https://marketplace.elgato.com/product/current-media-now-playing-a7ff3537-f6df-43f1-b3d0-35bd9f24078c
