@@ -25,5 +25,5 @@
 1. Скачайте последнюю версию со страницы [Releases](https://github.com/valentderah/stream-deck-current-media/releases).
 2. Дважды щелкните по скачанному файлу `.streamDeckPlugin` для установки.
 
-## Плагин в магазине
-Скоро в Elgato Marketplace.
+## Плагин в магазине Elgato
+https://marketplace.elgato.com/product/current-media-now-playing-a7ff3537-f6df-43f1-b3d0-35bd9f24078c
