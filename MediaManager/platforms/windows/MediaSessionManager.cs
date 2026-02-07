@@ -277,6 +277,8 @@ public class MediaSessionManager
             GlobalSystemMediaTransportControlsSession? pausedCurrent = null;
             GlobalSystemMediaTransportControlsSession? anyPaused = null;
 
+            var currentSystemSession = manager.GetCurrentSession();
+
             foreach (var session in allSessions)
             {
                 try
@@ -295,7 +297,6 @@ public class MediaSessionManager
                         {
                             pausedLastActive = session;
                         }
-                        var currentSystemSession = manager.GetCurrentSession();
                         if (currentSystemSession != null && session.SourceAppUserModelId == currentSystemSession.SourceAppUserModelId)
                         {
                             pausedCurrent = session;
@@ -309,8 +310,8 @@ public class MediaSessionManager
                 }
             }
 
-            return pausedLastActive
-                ?? pausedCurrent
+            return pausedCurrent
+                ?? pausedLastActive
                 ?? anyPaused
                 ?? allSessions.FirstOrDefault();
         }
