@@ -4,6 +4,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
+using BarRaider.SdTools;
 
 namespace CurrentMedia.Imaging;
 
@@ -14,42 +15,59 @@ static class ThumbnailProcessor
 
     public static async Task ProcessThumbnailAsync(IRandomAccessStreamReference thumbnail, MediaInfo info)
     {
-        try
+        const int maxRetries = 3;
+        const int retryDelayMs = 250;
+
+        for (var attempt = 1; attempt <= maxRetries; attempt++)
         {
-            using var thumbnailStream = await thumbnail.OpenReadAsync();
-            var decoder = await BitmapDecoder.CreateAsync(thumbnailStream);
-
-            var transform = new BitmapTransform();
-            var pixelData = await decoder.GetPixelDataAsync(
-                BitmapPixelFormat.Rgba8,
-                BitmapAlphaMode.Premultiplied,
-                transform,
-                ExifOrientationMode.RespectExifOrientation,
-                ColorManagementMode.ColorManageToSRgb
-            );
-
-            var sourcePixelBytes = pixelData.DetachPixelData();
-
-            var finalPixels = ImageUtils.CropToSquare(
-                sourcePixelBytes,
-                decoder.PixelWidth,
-                decoder.PixelHeight,
-                TargetSize
-            );
-
-            info.CoverArtBase64 = await ImageUtils.EncodeImageToBase64Async(finalPixels, TargetSize);
-
-            var parts = await SplitImageIntoPartsAsync(finalPixels, TargetSize);
-            if (parts.Count >= 4)
+            try
             {
-                info.CoverArtPart1Base64 = Convert.ToBase64String(parts[0]);
-                info.CoverArtPart2Base64 = Convert.ToBase64String(parts[1]);
-                info.CoverArtPart3Base64 = Convert.ToBase64String(parts[2]);
-                info.CoverArtPart4Base64 = Convert.ToBase64String(parts[3]);
+                using var thumbnailStream = await thumbnail.OpenReadAsync();
+                var decoder = await BitmapDecoder.CreateAsync(thumbnailStream);
+
+                var transform = new BitmapTransform();
+                var pixelData = await decoder.GetPixelDataAsync(
+                    BitmapPixelFormat.Rgba8,
+                    BitmapAlphaMode.Premultiplied,
+                    transform,
+                    ExifOrientationMode.RespectExifOrientation,
+                    ColorManagementMode.ColorManageToSRgb
+                );
+
+                var sourcePixelBytes = pixelData.DetachPixelData();
+
+                var finalPixels = ImageUtils.CropToSquare(
+                    sourcePixelBytes,
+                    decoder.PixelWidth,
+                    decoder.PixelHeight,
+                    TargetSize
+                );
+
+                info.CoverArtBase64 = await ImageUtils.EncodeImageToBase64Async(finalPixels, TargetSize);
+
+                var parts = await SplitImageIntoPartsAsync(finalPixels, TargetSize);
+                if (parts.Count >= 4)
+                {
+                    info.CoverArtPart1Base64 = Convert.ToBase64String(parts[0]);
+                    info.CoverArtPart2Base64 = Convert.ToBase64String(parts[1]);
+                    info.CoverArtPart3Base64 = Convert.ToBase64String(parts[2]);
+                    info.CoverArtPart4Base64 = Convert.ToBase64String(parts[3]);
+                }
+
+                return;
             }
-        }
-        catch
-        {
+            catch (Exception ex)
+            {
+                Logger.Instance.LogMessage(TracingLevel.WARN, $"Thumbnail processing attempt {attempt}/{maxRetries} failed: {ex.Message}");
+                if (attempt < maxRetries)
+                {
+                    await Task.Delay(retryDelayMs);
+                }
+                else
+                {
+                    Logger.Instance.LogMessage(TracingLevel.ERROR, "All thumbnail processing attempts failed. No cover art will be displayed.");
+                }
+            }
         }
     }
 

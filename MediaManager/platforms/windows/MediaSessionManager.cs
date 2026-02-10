@@ -90,17 +90,17 @@ public class MediaSessionManager
 
     private void OnSessionChanged()
     {
-        DebouncedUpdate(100);
+        DebouncedUpdate(250);
     }
 
     private void OnPlaybackInfoChanged(GlobalSystemMediaTransportControlsSession session, PlaybackInfoChangedEventArgs args)
     {
-        DebouncedUpdate(100);
+        DebouncedUpdate(250);
     }
 
     private void OnMediaPropertiesChanged(GlobalSystemMediaTransportControlsSession session, MediaPropertiesChangedEventArgs args)
     {
-        DebouncedUpdate(100);
+        DebouncedUpdate(250);
     }
 
     private void DebouncedUpdate(int delayMs)
