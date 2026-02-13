@@ -16,7 +16,7 @@ public class MediaSessionManager
 
     private readonly SemaphoreSlim _updateSemaphore = new(1, 1);
     private GlobalSystemMediaTransportControlsSessionManager? _sessionManager;
-    private readonly HashSet<string> _subscribedSessions = new();
+    private readonly Dictionary<string, GlobalSystemMediaTransportControlsSession> _subscribedSessions = new();
     private GlobalSystemMediaTransportControlsSession? _lastActiveSession;
     private Timer? _updateDebounceTimer;
     private readonly object _debounceLock = new();
@@ -54,32 +54,48 @@ public class MediaSessionManager
         }
     }
 
-    private void SubscribeToSession(GlobalSystemMediaTransportControlsSession session)
-    {
-        try
-        {
-            var sessionId = session.SourceAppUserModelId;
-            if (!_subscribedSessions.Contains(sessionId))
-            {
-                session.MediaPropertiesChanged += OnMediaPropertiesChanged;
-                session.PlaybackInfoChanged += OnPlaybackInfoChanged;
-                _subscribedSessions.Add(sessionId);
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Instance.LogMessage(TracingLevel.WARN, $"Failed to subscribe to session: {ex.Message}");
-        }
-    }
-
     private void SubscribeToAllSessions(GlobalSystemMediaTransportControlsSessionManager manager)
     {
         try
         {
             var allSessions = manager.GetSessions();
+            var currentSessionIds = new HashSet<string>();
+
             foreach (var session in allSessions)
             {
-                SubscribeToSession(session);
+                try
+                {
+                    var sessionId = session.SourceAppUserModelId;
+                    currentSessionIds.Add(sessionId);
+
+                    // Unsubscribe from old session object if exists
+                    if (_subscribedSessions.TryGetValue(sessionId, out var oldSession))
+                    {
+                        oldSession.MediaPropertiesChanged -= OnMediaPropertiesChanged;
+                        oldSession.PlaybackInfoChanged -= OnPlaybackInfoChanged;
+                    }
+
+                    // Subscribe to current session object and keep a strong reference
+                    session.MediaPropertiesChanged += OnMediaPropertiesChanged;
+                    session.PlaybackInfoChanged += OnPlaybackInfoChanged;
+                    _subscribedSessions[sessionId] = session;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Instance.LogMessage(TracingLevel.WARN, $"Failed to subscribe to session: {ex.Message}");
+                }
+            }
+
+            // Clean up sessions that no longer exist
+            var removedIds = _subscribedSessions.Keys.Where(id => !currentSessionIds.Contains(id)).ToList();
+            foreach (var id in removedIds)
+            {
+                if (_subscribedSessions.TryGetValue(id, out var oldSession))
+                {
+                    oldSession.MediaPropertiesChanged -= OnMediaPropertiesChanged;
+                    oldSession.PlaybackInfoChanged -= OnPlaybackInfoChanged;
+                }
+                _subscribedSessions.Remove(id);
             }
         }
         catch (Exception ex)
