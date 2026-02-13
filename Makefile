@@ -1,7 +1,7 @@
 .PHONY: build-windows pack zip prod
 
-create-builds-dir:
-	@if not exist builds mkdir builds
+create-dist-dir:
+	@if not exist dist mkdir dist
 
 build-windows:
 	@echo "Building for Windows..."
@@ -9,14 +9,16 @@ build-windows:
 	@echo "Copying executable..."
 	xcopy /Y MediaManager\\platforms\\windows\\bin\\Release\\net8.0-windows10.0.17763.0\\win-x64\\publish\\CurrentMedia.exe ru.valentderah.current-media.sdPlugin\\
 
-pack: create-builds-dir
+pack: create-dist-dir
 	@echo "Packing plugin with Stream Deck CLI..."
-	streamdeck pack ru.valentderah.current-media.sdPlugin -o builds
+	streamdeck pack ru.valentderah.current-media.sdPlugin -o dist
 
-zip: create-builds-dir
+zip: create-dist-dir
 	@echo "Zipping plugin directory..."
-	@powershell -Command "Compress-Archive -Path ./ru.valentderah.current-media.sdPlugin/* -DestinationPath builds/current-media.sdPlugin.zip -Force"
-	@echo "Plugin zipped into builds/current-media.sdPlugin.zip"
+	@powershell -Command "Compress-Archive -Path ./ru.valentderah.current-media.sdPlugin/* -DestinationPath dist/current-media.sdPlugin.zip -Force"
+	@echo "Plugin zipped into dist/current-media.sdPlugin.zip"
 
 prod: build-windows zip pack
 	@echo "Production build complete!"
+
+build: prod
