@@ -11,7 +11,7 @@ build-windows:
 
 pack: create-dist-dir
 	@echo "Packing plugin with Stream Deck CLI..."
-	streamdeck pack ru.valentderah.current-media.sdPlugin -o dist
+	streamdeck pack ru.valentderah.current-media.sdPlugin -o dist --force
 
 zip: create-dist-dir
 	@echo "Zipping plugin directory..."
