@@ -1,52 +1,52 @@
 <!doctype html>
-<head lang="en-gb">
-    <meta charset="utf-8" />
-    <script src="https://sdpi-components.dev/releases/v3/sdpi-components.js"></script>
+<head>
+    <meta charset="utf-8"/>
+    <script src="js/sdpi-components.js"></script>
+    <script src="js/i18n.js"></script>
 </head>
 <html>
     <body>
-        <sdpi-item label="Image Mode">
+        <sdpi-item label="__MSG_ImageMode__">
             <sdpi-select setting="position" default="none">
-                <option value="none">Full</option>
-                <option value="top-left">Top Left (2x2)</option>
-                <option value="top-right">Top Right (2x2)</option>
-                <option value="bottom-left">Bottom Left (2x2)</option>
-                <option value="bottom-right">Bottom Right (2x2)</option>
+                <option value="none">__MSG_Full__</option>
+                <option value="top-left">__MSG_TopLeft__</option>
+                <option value="top-right">__MSG_TopRight__</option>
+                <option value="bottom-left">__MSG_BottomLeft__</option>
+                <option value="bottom-right">__MSG_BottomRight__</option>
             </sdpi-select>
         </sdpi-item>
 
-        <sdpi-item label="Action on Click">
+        <sdpi-item label="__MSG_ActionOnClick__">
             <sdpi-select setting="action" default="toggle">
-                <option value="toggle">Play/Pause</option>
-                <option value="next">Next Track</option>
-                <option value="previous">Previous Track</option>
-                <option value="forward">Seek Forward (+10s)</option>
-                <option value="backward">Seek Backward (-10s)</option>
-                <option value="none">None</option>
+                <option value="toggle">__MSG_PlayPause__</option>
+                <option value="next">__MSG_NextTrack__</option>
+                <option value="previous">__MSG_PreviousTrack__</option>
+                <option value="forward">__MSG_SeekForward__</option>
+                <option value="backward">__MSG_SeekBackward__</option>
+                <option value="none">__MSG_None__</option>
             </sdpi-select>
         </sdpi-item>
 
-        <sdpi-item label="Text Display">
+        <sdpi-item label="__MSG_TextDisplay__">
             <sdpi-select setting="textDisplayMode" default="both">
-                <option value="both">Artist and Title</option>
-                <option value="artists">Artist Only</option>
-                <option value="title">Title Only</option>
-                <option value="none">None</option>
+                <option value="both">__MSG_ArtistAndTitle__</option>
+                <option value="artists">__MSG_ArtistOnly__</option>
+                <option value="title">__MSG_TitleOnly__</option>
+                <option value="none">__MSG_None__</option>
             </sdpi-select>
         </sdpi-item>
 
-        <sdpi-item label="Overlay Display">
+        <sdpi-item label="__MSG_OverlayDisplay__">
             <sdpi-select setting="overlayDisplayMode" default="none">
-                <option value="none">None</option>
-                <option value="icon">App Icon Only</option>
-                <option value="status">Status Only</option>
-                <option value="both">App Icon and Status</option>
+                <option value="none">__MSG_None__</option>
+                <option value="icon">__MSG_AppIconOnly__</option>
+                <option value="status">__MSG_StatusOnly__</option>
+                <option value="both">__MSG_AppIconAndStatus__</option>
             </sdpi-select>
         </sdpi-item>
 
-        <sdpi-item label="Enable Marquee">
+        <sdpi-item label="__MSG_EnableMarquee__">
             <sdpi-checkbox setting="enableMarquee" default="true"></sdpi-checkbox>
         </sdpi-item>
     </body>
 </html>
-

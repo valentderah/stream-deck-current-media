@@ -1,0 +1,29 @@
+{
+	"Name": "Current Media (Сейчас играет)",
+	"Description": "Этот плагин отображает обложку активной музыки или видео (Chrome, YouTube, Spotify, Яндекс Музыка и др.) и позволяет управлять воспроизведением прямо со Stream Deck.",
+	"Category": "Current Media (Сейчас играет)",
+	"ru.valentderah.current-media.media-info": {
+		"Name": "Сейчас играет",
+		"Tooltip": "Отображает текущее воспроизводимое медиа."
+	},
+	"ru.valentderah.current-media.media-next": {
+		"Name": "Следующий трек",
+		"Tooltip": "Перейти к следующему треку."
+	},
+	"ru.valentderah.current-media.media-previous": {
+		"Name": "Предыдущий трек",
+		"Tooltip": "Перейти к предыдущему треку."
+	},
+	"ru.valentderah.current-media.media-play-pause": {
+		"Name": "Воспроизведение/Пауза",
+		"Tooltip": "Переключить воспроизведение/паузу."
+	},
+	"ru.valentderah.current-media.media-forward": {
+		"Name": "Перемотка вперёд",
+		"Tooltip": "Перемотать вперёд на 10 секунд."
+	},
+	"ru.valentderah.current-media.media-backward": {
+		"Name": "Перемотка назад",
+		"Tooltip": "Перемотать назад на 10 секунд."
+	}
+}

@@ -1,0 +1,29 @@
+{
+	"Name": "Current Media (Now Playing)",
+	"Description": "This plugin displays cover for the active media player (Chrome, YouTube, Spotify, Yandex Music, etc.) and allows you to control playback directly from Stream Deck.",
+	"Category": "Current Media (Now Playing)",
+	"ru.valentderah.current-media.media-info": {
+		"Name": "Now Playing",
+		"Tooltip": "Displays currently playing media."
+	},
+	"ru.valentderah.current-media.media-next": {
+		"Name": "Next Media",
+		"Tooltip": "Skip to next track."
+	},
+	"ru.valentderah.current-media.media-previous": {
+		"Name": "Previous Media",
+		"Tooltip": "Skip to previous track."
+	},
+	"ru.valentderah.current-media.media-play-pause": {
+		"Name": "Play/Pause",
+		"Tooltip": "Toggle play/pause."
+	},
+	"ru.valentderah.current-media.media-forward": {
+		"Name": "Seek Forward",
+		"Tooltip": "Seek forward 10 seconds."
+	},
+	"ru.valentderah.current-media.media-backward": {
+		"Name": "Seek Backward",
+		"Tooltip": "Seek backward 10 seconds."
+	}
+}
