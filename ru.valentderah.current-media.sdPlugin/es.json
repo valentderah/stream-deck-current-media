@@ -1,0 +1,53 @@
+{
+	"Name": "Current Media (Reproduciendo ahora)",
+	"Description": "Este plugin muestra la portada del reproductor multimedia activo (Chrome, YouTube, Spotify, Yandex Music, etc.) y permite controlar la reproducción directamente desde Stream Deck.",
+	"Category": "Current Media (Reproduciendo ahora)",
+	"ru.valentderah.current-media.media-info": {
+		"Name": "Reproduciendo ahora",
+		"Tooltip": "Muestra el medio que se está reproduciendo actualmente."
+	},
+	"ru.valentderah.current-media.media-next": {
+		"Name": "Siguiente pista",
+		"Tooltip": "Saltar a la siguiente pista."
+	},
+	"ru.valentderah.current-media.media-previous": {
+		"Name": "Pista anterior",
+		"Tooltip": "Volver a la pista anterior."
+	},
+	"ru.valentderah.current-media.media-play-pause": {
+		"Name": "Reproducir/Pausar",
+		"Tooltip": "Alternar reproducción/pausa."
+	},
+	"ru.valentderah.current-media.media-forward": {
+		"Name": "Avanzar",
+		"Tooltip": "Avanzar 10 segundos."
+	},
+	"ru.valentderah.current-media.media-backward": {
+		"Name": "Retroceder",
+		"Tooltip": "Retroceder 10 segundos."
+	},
+	"Localization": {
+		"ImageMode": "Modo de imagen",
+		"ActionOnClick": "Acción al hacer clic",
+		"TextDisplay": "Visualización de texto",
+		"OverlayDisplay": "Visualización de superposición",
+		"EnableMarquee": "Activar marquesina",
+		"Full": "Completo",
+		"TopLeft": "Arriba izquierda (2x2)",
+		"TopRight": "Arriba derecha (2x2)",
+		"BottomLeft": "Abajo izquierda (2x2)",
+		"BottomRight": "Abajo derecha (2x2)",
+		"PlayPause": "Reproducir/Pausar",
+		"NextTrack": "Siguiente pista",
+		"PreviousTrack": "Pista anterior",
+		"SeekForward": "Avanzar (+10s)",
+		"SeekBackward": "Retroceder (-10s)",
+		"None": "Ninguno",
+		"ArtistAndTitle": "Artista y título",
+		"ArtistOnly": "Solo artista",
+		"TitleOnly": "Solo título",
+		"AppIconOnly": "Solo icono de app",
+		"StatusOnly": "Solo estado",
+		"AppIconAndStatus": "Icono de app y estado"
+	}
+}

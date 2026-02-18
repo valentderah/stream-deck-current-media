@@ -1,0 +1,53 @@
+{
+	"Name": "Current Media (재생 중)",
+	"Description": "이 플러그인은 활성 미디어 플레이어(Chrome, YouTube, Spotify, Yandex Music 등)의 커버를 표시하고 Stream Deck에서 직접 재생을 제어할 수 있습니다.",
+	"Category": "Current Media (재생 중)",
+	"ru.valentderah.current-media.media-info": {
+		"Name": "재생 중",
+		"Tooltip": "현재 재생 중인 미디어를 표시합니다."
+	},
+	"ru.valentderah.current-media.media-next": {
+		"Name": "다음 트랙",
+		"Tooltip": "다음 트랙으로 건너뜁니다."
+	},
+	"ru.valentderah.current-media.media-previous": {
+		"Name": "이전 트랙",
+		"Tooltip": "이전 트랙으로 돌아갑니다."
+	},
+	"ru.valentderah.current-media.media-play-pause": {
+		"Name": "재생/일시정지",
+		"Tooltip": "재생/일시정지를 전환합니다."
+	},
+	"ru.valentderah.current-media.media-forward": {
+		"Name": "앞으로 감기",
+		"Tooltip": "10초 앞으로 감습니다."
+	},
+	"ru.valentderah.current-media.media-backward": {
+		"Name": "뒤로 감기",
+		"Tooltip": "10초 뒤로 감습니다."
+	},
+	"Localization": {
+		"ImageMode": "이미지 모드",
+		"ActionOnClick": "클릭 시 동작",
+		"TextDisplay": "텍스트 표시",
+		"OverlayDisplay": "오버레이 표시",
+		"EnableMarquee": "마퀴 활성화",
+		"Full": "전체",
+		"TopLeft": "왼쪽 위 (2x2)",
+		"TopRight": "오른쪽 위 (2x2)",
+		"BottomLeft": "왼쪽 아래 (2x2)",
+		"BottomRight": "오른쪽 아래 (2x2)",
+		"PlayPause": "재생/일시정지",
+		"NextTrack": "다음 트랙",
+		"PreviousTrack": "이전 트랙",
+		"SeekForward": "앞으로 감기 (+10초)",
+		"SeekBackward": "뒤로 감기 (-10초)",
+		"None": "없음",
+		"ArtistAndTitle": "아티스트 및 제목",
+		"ArtistOnly": "아티스트만",
+		"TitleOnly": "제목만",
+		"AppIconOnly": "앱 아이콘만",
+		"StatusOnly": "상태만",
+		"AppIconAndStatus": "앱 아이콘 및 상태"
+	}
+}

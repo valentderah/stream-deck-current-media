@@ -1,0 +1,53 @@
+{
+	"Name": "Current Media (Gerade abgespielt)",
+	"Description": "Dieses Plugin zeigt das Cover des aktiven Mediaplayers (Chrome, YouTube, Spotify, Yandex Music usw.) an und ermöglicht die direkte Steuerung der Wiedergabe über das Stream Deck.",
+	"Category": "Current Media (Gerade abgespielt)",
+	"ru.valentderah.current-media.media-info": {
+		"Name": "Gerade abgespielt",
+		"Tooltip": "Zeigt das aktuell abgespielte Medium an."
+	},
+	"ru.valentderah.current-media.media-next": {
+		"Name": "Nächster Titel",
+		"Tooltip": "Zum nächsten Titel springen."
+	},
+	"ru.valentderah.current-media.media-previous": {
+		"Name": "Vorheriger Titel",
+		"Tooltip": "Zum vorherigen Titel springen."
+	},
+	"ru.valentderah.current-media.media-play-pause": {
+		"Name": "Wiedergabe/Pause",
+		"Tooltip": "Wiedergabe/Pause umschalten."
+	},
+	"ru.valentderah.current-media.media-forward": {
+		"Name": "Vorspulen",
+		"Tooltip": "10 Sekunden vorspulen."
+	},
+	"ru.valentderah.current-media.media-backward": {
+		"Name": "Zurückspulen",
+		"Tooltip": "10 Sekunden zurückspulen."
+	},
+	"Localization": {
+		"ImageMode": "Bildmodus",
+		"ActionOnClick": "Aktion beim Klicken",
+		"TextDisplay": "Textanzeige",
+		"OverlayDisplay": "Overlay-Anzeige",
+		"EnableMarquee": "Laufschrift aktivieren",
+		"Full": "Vollbild",
+		"TopLeft": "Oben links (2x2)",
+		"TopRight": "Oben rechts (2x2)",
+		"BottomLeft": "Unten links (2x2)",
+		"BottomRight": "Unten rechts (2x2)",
+		"PlayPause": "Wiedergabe/Pause",
+		"NextTrack": "Nächster Titel",
+		"PreviousTrack": "Vorheriger Titel",
+		"SeekForward": "Vorspulen (+10s)",
+		"SeekBackward": "Zurückspulen (-10s)",
+		"None": "Keine",
+		"ArtistAndTitle": "Interpret und Titel",
+		"ArtistOnly": "Nur Interpret",
+		"TitleOnly": "Nur Titel",
+		"AppIconOnly": "Nur App-Symbol",
+		"StatusOnly": "Nur Status",
+		"AppIconAndStatus": "App-Symbol und Status"
+	}
+}

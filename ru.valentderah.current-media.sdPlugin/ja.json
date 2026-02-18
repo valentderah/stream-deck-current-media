@@ -1,0 +1,53 @@
+{
+	"Name": "Current Media（再生中）",
+	"Description": "このプラグインはアクティブなメディアプレイヤー（Chrome、YouTube、Spotify、Yandex Musicなど）のカバーを表示し、Stream Deckから直接再生を操作できます。",
+	"Category": "Current Media（再生中）",
+	"ru.valentderah.current-media.media-info": {
+		"Name": "再生中",
+		"Tooltip": "現在再生中のメディアを表示します。"
+	},
+	"ru.valentderah.current-media.media-next": {
+		"Name": "次のトラック",
+		"Tooltip": "次のトラックにスキップします。"
+	},
+	"ru.valentderah.current-media.media-previous": {
+		"Name": "前のトラック",
+		"Tooltip": "前のトラックに戻ります。"
+	},
+	"ru.valentderah.current-media.media-play-pause": {
+		"Name": "再生/一時停止",
+		"Tooltip": "再生/一時停止を切り替えます。"
+	},
+	"ru.valentderah.current-media.media-forward": {
+		"Name": "早送り",
+		"Tooltip": "10秒早送りします。"
+	},
+	"ru.valentderah.current-media.media-backward": {
+		"Name": "巻き戻し",
+		"Tooltip": "10秒巻き戻します。"
+	},
+	"Localization": {
+		"ImageMode": "画像モード",
+		"ActionOnClick": "クリック時の動作",
+		"TextDisplay": "テキスト表示",
+		"OverlayDisplay": "オーバーレイ表示",
+		"EnableMarquee": "マーキーを有効にする",
+		"Full": "フル",
+		"TopLeft": "左上 (2x2)",
+		"TopRight": "右上 (2x2)",
+		"BottomLeft": "左下 (2x2)",
+		"BottomRight": "右下 (2x2)",
+		"PlayPause": "再生/一時停止",
+		"NextTrack": "次のトラック",
+		"PreviousTrack": "前のトラック",
+		"SeekForward": "早送り (+10秒)",
+		"SeekBackward": "巻き戻し (-10秒)",
+		"None": "なし",
+		"ArtistAndTitle": "アーティストとタイトル",
+		"ArtistOnly": "アーティストのみ",
+		"TitleOnly": "タイトルのみ",
+		"AppIconOnly": "アプリアイコンのみ",
+		"StatusOnly": "ステータスのみ",
+		"AppIconAndStatus": "アプリアイコンとステータス"
+	}
+}

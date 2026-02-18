@@ -1,0 +1,53 @@
+{
+	"Name": "Current Media（正在播放）",
+	"Description": "此外掛程式可顯示目前使用中媒體播放器（Chrome、YouTube、Spotify、Yandex Music 等）的封面，並允許您直接透過 Stream Deck 控制播放。",
+	"Category": "Current Media（正在播放）",
+	"ru.valentderah.current-media.media-info": {
+		"Name": "正在播放",
+		"Tooltip": "顯示目前正在播放的媒體。"
+	},
+	"ru.valentderah.current-media.media-next": {
+		"Name": "下一首",
+		"Tooltip": "跳到下一首曲目。"
+	},
+	"ru.valentderah.current-media.media-previous": {
+		"Name": "上一首",
+		"Tooltip": "跳到上一首曲目。"
+	},
+	"ru.valentderah.current-media.media-play-pause": {
+		"Name": "播放/暫停",
+		"Tooltip": "切換播放/暫停。"
+	},
+	"ru.valentderah.current-media.media-forward": {
+		"Name": "快進",
+		"Tooltip": "快進 10 秒。"
+	},
+	"ru.valentderah.current-media.media-backward": {
+		"Name": "快退",
+		"Tooltip": "快退 10 秒。"
+	},
+	"Localization": {
+		"ImageMode": "圖片模式",
+		"ActionOnClick": "點擊操作",
+		"TextDisplay": "文字顯示",
+		"OverlayDisplay": "疊加顯示",
+		"EnableMarquee": "啟用跑馬燈",
+		"Full": "完整",
+		"TopLeft": "左上 (2x2)",
+		"TopRight": "右上 (2x2)",
+		"BottomLeft": "左下 (2x2)",
+		"BottomRight": "右下 (2x2)",
+		"PlayPause": "播放/暫停",
+		"NextTrack": "下一曲",
+		"PreviousTrack": "上一曲",
+		"SeekForward": "快進 (+10秒)",
+		"SeekBackward": "快退 (-10秒)",
+		"None": "無",
+		"ArtistAndTitle": "演出者與標題",
+		"ArtistOnly": "僅演出者",
+		"TitleOnly": "僅標題",
+		"AppIconOnly": "僅應用程式圖示",
+		"StatusOnly": "僅狀態",
+		"AppIconAndStatus": "應用程式圖示與狀態"
+	}
+}

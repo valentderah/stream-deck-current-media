@@ -1,0 +1,116 @@
+:root {
+	--window-bg: #2d2d2d;
+	--input-bg: #3d3d3d;
+	--font-color: #969696;
+	--input-font-color: #d8d8d8;
+	--border-color: #2a2a2a;
+	--highlight-color: #4b4b4b;
+	--label-width: 95px;
+}
+
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+html, body {
+	font-family: "Segoe UI", sans-serif;
+	font-size: 9pt;
+	color: var(--font-color);
+	background: var(--window-bg);
+	-webkit-font-smoothing: antialiased;
+}
+
+body {
+	padding: 0;
+	overflow-x: hidden;
+}
+
+.sdpi-wrapper {
+	display: flex;
+	flex-direction: column;
+	padding: 4px 0;
+}
+
+.sdpi-item {
+	display: flex;
+	align-items: center;
+	min-height: 32px;
+	padding: 4px 8px;
+}
+
+.sdpi-item-label {
+	flex: 0 0 var(--label-width);
+	width: var(--label-width);
+	text-align: right;
+	padding-right: 8px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	user-select: none;
+}
+
+.sdpi-item-value {
+	/*flex: 1;*/
+	min-width: 0;
+}
+
+select {
+	width: 100%;
+	height: 26px;
+	padding: 0 20px 0 6px;
+	background: var(--input-bg);
+	color: var(--input-font-color);
+	border: 1px solid var(--border-color);
+	border-radius: 3px;
+	font-family: inherit;
+	font-size: inherit;
+	outline: none;
+	cursor: pointer;
+	appearance: none;
+	-webkit-appearance: none;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23969696'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 6px center;
+}
+
+select:hover {
+	border-color: var(--highlight-color);
+}
+
+select:focus {
+	border-color: #527ebd;
+}
+
+select option {
+	background: var(--input-bg);
+	color: var(--input-font-color);
+}
+
+input[type="checkbox"] {
+	width: 16px;
+	height: 16px;
+	accent-color: #527ebd;
+	cursor: pointer;
+	align-self: center;
+	margin-left: 0;
+	margin-right: auto;
+}
+
+::-webkit-scrollbar {
+	width: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--window-bg);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--highlight-color);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: #5a5a5a;
+}

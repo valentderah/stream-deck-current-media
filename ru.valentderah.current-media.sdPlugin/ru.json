@@ -25,5 +25,29 @@
 	"ru.valentderah.current-media.media-backward": {
 		"Name": "Перемотка назад",
 		"Tooltip": "Перемотать назад на 10 секунд."
+	},
+	"Localization": {
+		"ImageMode": "Режим изображения",
+		"ActionOnClick": "Действие по нажатию",
+		"TextDisplay": "Отображение текста",
+		"OverlayDisplay": "Отображение оверлея",
+		"EnableMarquee": "Бегущая строка",
+		"Full": "Полное",
+		"TopLeft": "Верх лево (2x2)",
+		"TopRight": "Верх право (2x2)",
+		"BottomLeft": "Низ лево (2x2)",
+		"BottomRight": "Низ право (2x2)",
+		"PlayPause": "Воспроизведение/Пауза",
+		"NextTrack": "Следующий трек",
+		"PreviousTrack": "Предыдущий трек",
+		"SeekForward": "Перемотка вперёд (+10с)",
+		"SeekBackward": "Перемотка назад (-10с)",
+		"None": "Нет",
+		"ArtistAndTitle": "Исполнитель и название",
+		"ArtistOnly": "Только исполнитель",
+		"TitleOnly": "Только название",
+		"AppIconOnly": "Только иконка приложения",
+		"StatusOnly": "Только статус",
+		"AppIconAndStatus": "Иконка приложения и статус"
 	}
 }

@@ -1,0 +1,53 @@
+{
+	"Name": "Current Media (En cours de lecture)",
+	"Description": "Ce plugin affiche la pochette du lecteur multimédia actif (Chrome, YouTube, Spotify, Yandex Music, etc.) et permet de contrôler la lecture directement depuis le Stream Deck.",
+	"Category": "Current Media (En cours de lecture)",
+	"ru.valentderah.current-media.media-info": {
+		"Name": "En cours de lecture",
+		"Tooltip": "Affiche le média en cours de lecture."
+	},
+	"ru.valentderah.current-media.media-next": {
+		"Name": "Piste suivante",
+		"Tooltip": "Passer à la piste suivante."
+	},
+	"ru.valentderah.current-media.media-previous": {
+		"Name": "Piste précédente",
+		"Tooltip": "Revenir à la piste précédente."
+	},
+	"ru.valentderah.current-media.media-play-pause": {
+		"Name": "Lecture/Pause",
+		"Tooltip": "Basculer lecture/pause."
+	},
+	"ru.valentderah.current-media.media-forward": {
+		"Name": "Avance rapide",
+		"Tooltip": "Avancer de 10 secondes."
+	},
+	"ru.valentderah.current-media.media-backward": {
+		"Name": "Retour rapide",
+		"Tooltip": "Reculer de 10 secondes."
+	},
+	"Localization": {
+		"ImageMode": "Mode image",
+		"ActionOnClick": "Action au clic",
+		"TextDisplay": "Affichage du texte",
+		"OverlayDisplay": "Affichage de la superposition",
+		"EnableMarquee": "Activer le défilement",
+		"Full": "Plein",
+		"TopLeft": "Haut gauche (2x2)",
+		"TopRight": "Haut droit (2x2)",
+		"BottomLeft": "Bas gauche (2x2)",
+		"BottomRight": "Bas droit (2x2)",
+		"PlayPause": "Lecture/Pause",
+		"NextTrack": "Piste suivante",
+		"PreviousTrack": "Piste précédente",
+		"SeekForward": "Avance rapide (+10s)",
+		"SeekBackward": "Retour rapide (-10s)",
+		"None": "Aucun",
+		"ArtistAndTitle": "Artiste et titre",
+		"ArtistOnly": "Artiste uniquement",
+		"TitleOnly": "Titre uniquement",
+		"AppIconOnly": "Icône d'application uniquement",
+		"StatusOnly": "Statut uniquement",
+		"AppIconAndStatus": "Icône d'application et statut"
+	}
+}

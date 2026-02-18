@@ -1,7 +1,7 @@
 {
-	"Name": "当前媒体（正在播放）",
+	"Name": "Current Media（正在播放）",
 	"Description": "此插件可显示当前活动媒体播放器（Chrome、YouTube、Spotify、Yandex Music 等）的封面，并允许您直接通过 Stream Deck 控制播放。",
-	"Category": "当前媒体（正在播放）",
+	"Category": "Current Media（正在播放）",
 	"ru.valentderah.current-media.media-info": {
 		"Name": "正在播放",
 		"Tooltip": "显示当前正在播放的媒体。"
@@ -25,5 +25,29 @@
 	"ru.valentderah.current-media.media-backward": {
 		"Name": "快退",
 		"Tooltip": "快退 10 秒。"
+	},
+	"Localization": {
+		"ImageMode": "图片模式",
+		"ActionOnClick": "点击操作",
+		"TextDisplay": "文字显示",
+		"OverlayDisplay": "叠加显示",
+		"EnableMarquee": "启用跑马灯",
+		"Full": "完整",
+		"TopLeft": "左上 (2x2)",
+		"TopRight": "右上 (2x2)",
+		"BottomLeft": "左下 (2x2)",
+		"BottomRight": "右下 (2x2)",
+		"PlayPause": "播放/暂停",
+		"NextTrack": "下一曲",
+		"PreviousTrack": "上一曲",
+		"SeekForward": "快进 (+10秒)",
+		"SeekBackward": "快退 (-10秒)",
+		"None": "无",
+		"ArtistAndTitle": "艺术家和标题",
+		"ArtistOnly": "仅艺术家",
+		"TitleOnly": "仅标题",
+		"AppIconOnly": "仅应用图标",
+		"StatusOnly": "仅状态",
+		"AppIconAndStatus": "应用图标和状态"
 	}
 }

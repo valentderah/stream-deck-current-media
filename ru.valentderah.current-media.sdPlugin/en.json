@@ -25,5 +25,29 @@
 	"ru.valentderah.current-media.media-backward": {
 		"Name": "Seek Backward",
 		"Tooltip": "Seek backward 10 seconds."
+	},
+	"Localization": {
+		"ImageMode": "Image Mode",
+		"ActionOnClick": "Action on Click",
+		"TextDisplay": "Text Display",
+		"OverlayDisplay": "Overlay Display",
+		"EnableMarquee": "Enable Marquee",
+		"Full": "Full",
+		"TopLeft": "Top Left (2x2)",
+		"TopRight": "Top Right (2x2)",
+		"BottomLeft": "Bottom Left (2x2)",
+		"BottomRight": "Bottom Right (2x2)",
+		"PlayPause": "Play/Pause",
+		"NextTrack": "Next Track",
+		"PreviousTrack": "Previous Track",
+		"SeekForward": "Seek Forward (+10s)",
+		"SeekBackward": "Seek Backward (-10s)",
+		"None": "None",
+		"ArtistAndTitle": "Artist and Title",
+		"ArtistOnly": "Artist Only",
+		"TitleOnly": "Title Only",
+		"AppIconOnly": "App Icon Only",
+		"StatusOnly": "Status Only",
+		"AppIconAndStatus": "App Icon and Status"
 	}
 }
