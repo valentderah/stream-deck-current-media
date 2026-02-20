@@ -37,6 +37,7 @@
 		"TopRight": "오른쪽 위 (2x2)",
 		"BottomLeft": "왼쪽 아래 (2x2)",
 		"BottomRight": "오른쪽 아래 (2x2)",
+		"NoImage": "커버 없음",
 		"PlayPause": "재생/일시정지",
 		"NextTrack": "다음 트랙",
 		"PreviousTrack": "이전 트랙",

@@ -37,6 +37,7 @@
 		"TopRight": "右上 (2x2)",
 		"BottomLeft": "左下 (2x2)",
 		"BottomRight": "右下 (2x2)",
+		"NoImage": "無封面",
 		"PlayPause": "播放/暫停",
 		"NextTrack": "下一曲",
 		"PreviousTrack": "上一曲",

@@ -37,6 +37,7 @@
 		"TopRight": "Oben rechts (2x2)",
 		"BottomLeft": "Unten links (2x2)",
 		"BottomRight": "Unten rechts (2x2)",
+		"NoImage": "Kein Cover",
 		"PlayPause": "Wiedergabe/Pause",
 		"NextTrack": "Nächster Titel",
 		"PreviousTrack": "Vorheriger Titel",

@@ -37,6 +37,7 @@
 		"TopRight": "右上 (2x2)",
 		"BottomLeft": "左下 (2x2)",
 		"BottomRight": "右下 (2x2)",
+		"NoImage": "カバーなし",
 		"PlayPause": "再生/一時停止",
 		"NextTrack": "次のトラック",
 		"PreviousTrack": "前のトラック",

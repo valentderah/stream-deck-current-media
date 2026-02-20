@@ -37,6 +37,7 @@
 		"TopRight": "Arriba derecha (2x2)",
 		"BottomLeft": "Abajo izquierda (2x2)",
 		"BottomRight": "Abajo derecha (2x2)",
+		"NoImage": "Sin portada",
 		"PlayPause": "Reproducir/Pausar",
 		"NextTrack": "Siguiente pista",
 		"PreviousTrack": "Pista anterior",
