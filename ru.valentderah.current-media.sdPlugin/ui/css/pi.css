@@ -45,9 +45,6 @@ body {
 	width: var(--label-width);
 	text-align: right;
 	padding-right: 8px;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 	user-select: none;
 }
 
