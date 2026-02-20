@@ -46,7 +46,7 @@ public class NowPlayingAction : KeypadBase
 
     private const int ImageSizeFull = 144;
     private const int ImageSizeSingleCell = 72;
-    private const string PlaceholderColor = "#1F1F1F";
+    private const string PlaceholderColor = "#000000";
 
     private readonly PluginSettings _settings;
     private MediaInfo? _currentMediaInfo;
@@ -170,16 +170,13 @@ public class NowPlayingAction : KeypadBase
     {
         try
         {
-            var imageSize = _settings.Position == "none" ? ImageSizeFull : ImageSizeSingleCell;
-            string? base64Image = null;
+            var imageSize = (_settings.Position == "none" || _settings.Position == "no-image")
+                ? ImageSizeFull : ImageSizeSingleCell;
+            Image? baseImage = null;
 
-            if (_settings.Position == "none")
+            if (_settings.Position != "no-image")
             {
-                base64Image = info.CoverArtBase64;
-            }
-            else
-            {
-                base64Image = _settings.Position switch
+                string? base64Image = _settings.Position switch
                 {
                     "top-left" => info.CoverArtPart1Base64,
                     "top-right" => info.CoverArtPart2Base64,
@@ -187,20 +184,16 @@ public class NowPlayingAction : KeypadBase
                     "bottom-right" => info.CoverArtPart4Base64,
                     _ => info.CoverArtBase64
                 };
+
+                if (!string.IsNullOrEmpty(base64Image))
+                {
+                    var imageBytes = Convert.FromBase64String(base64Image);
+                    using var ms = new MemoryStream(imageBytes);
+                    baseImage = Image.FromStream(ms);
+                }
             }
 
-            Image? baseImage = null;
-
-            if (!string.IsNullOrEmpty(base64Image))
-            {
-                var imageBytes = Convert.FromBase64String(base64Image);
-                using var ms = new MemoryStream(imageBytes);
-                baseImage = Image.FromStream(ms);
-            }
-            else
-            {
-                baseImage = CreatePlaceholderImage(imageSize);
-            }
+            baseImage ??= CreatePlaceholderImage(imageSize);
 
             if (baseImage != null)
             {
