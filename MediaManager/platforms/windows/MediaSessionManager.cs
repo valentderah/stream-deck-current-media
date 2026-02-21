@@ -136,6 +136,7 @@ public class MediaSessionManager
         await UpdateAndNotifyAsync();
     }
 
+
     private async Task UpdateAndNotifyAsync()
     {
         await _updateSemaphore.WaitAsync();

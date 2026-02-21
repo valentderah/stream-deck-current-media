@@ -45,8 +45,8 @@ static class ImageUtils
         var minDimension = Math.Min(width, height);
         var scale = (double)targetSize / minDimension;
 
-        var scaledWidth = (uint)Math.Round(width * scale);
-        var scaledHeight = (uint)Math.Round(height * scale);
+        var scaledWidth = (uint)Math.Max(1, Math.Round(width * scale));
+        var scaledHeight = (uint)Math.Max(1, Math.Round(height * scale));
 
         var offsetX = scaledWidth > targetSize ? (int)((scaledWidth - targetSize) / 2) : 0;
         var offsetY = scaledHeight > targetSize ? (int)((scaledHeight - targetSize) / 2) : 0;
@@ -58,68 +58,96 @@ static class ImageUtils
             return result;
         }
 
-        var scaledPixels = new byte[scaledWidth * scaledHeight * 4];
+        var scaledPixels = ScaleBilinear(sourcePixelBytes, width, height, scaledWidth, scaledHeight, scale);
+        return PlaceOnCanvas(scaledPixels, scaledWidth, scaledHeight, targetSize, offsetX, offsetY, 0x00, 0x00, 0x00, 0xFF);
+    }
 
-        for (uint y = 0; y < scaledHeight; y++)
+    public static byte[] FitToTop(byte[] sourcePixelBytes, uint width, uint height, int targetSize)
+    {
+        var maxDimension = Math.Max(width, height);
+        var scale = (double)targetSize / maxDimension;
+
+        var scaledWidth = (uint)Math.Max(1, Math.Round(width * scale));
+        var scaledHeight = (uint)Math.Max(1, Math.Round(height * scale));
+
+        var offsetX = -(int)((targetSize - scaledWidth) / 2);
+
+        var scaledPixels = ScaleBilinear(sourcePixelBytes, width, height, scaledWidth, scaledHeight, scale);
+        return PlaceOnCanvas(scaledPixels, scaledWidth, scaledHeight, targetSize, offsetX, 0, 0x00, 0x00, 0x00, 0xFF);
+    }
+
+    private static byte[] ScaleBilinear(byte[] source, uint srcWidth, uint srcHeight, uint dstWidth, uint dstHeight, double scale)
+    {
+        var result = new byte[dstWidth * dstHeight * 4];
+
+        for (uint y = 0; y < dstHeight; y++)
         {
-            for (uint x = 0; x < scaledWidth; x++)
+            for (uint x = 0; x < dstWidth; x++)
             {
-                var srcX = x / scale;
-                var srcY = y / scale;
+                var origX = x / scale;
+                var origY = y / scale;
 
-                var x1 = (uint)Math.Floor(srcX);
-                var y1 = (uint)Math.Floor(srcY);
-                var x2 = (uint)Math.Min(x1 + 1, width - 1);
-                var y2 = (uint)Math.Min(y1 + 1, height - 1);
+                var x1 = (uint)Math.Floor(origX);
+                var y1 = (uint)Math.Floor(origY);
+                var x2 = (uint)Math.Min(x1 + 1, srcWidth - 1);
+                var y2 = (uint)Math.Min(y1 + 1, srcHeight - 1);
 
-                var fx = srcX - x1;
-                var fy = srcY - y1;
+                var fx = origX - x1;
+                var fy = origY - y1;
 
-                var p11 = GetPixel(sourcePixelBytes, width, x1, y1);
-                var p21 = GetPixel(sourcePixelBytes, width, x2, y1);
-                var p12 = GetPixel(sourcePixelBytes, width, x1, y2);
-                var p22 = GetPixel(sourcePixelBytes, width, x2, y2);
+                var p = InterpolatePixels(
+                    GetPixel(source, srcWidth, x1, y1),
+                    GetPixel(source, srcWidth, x2, y1),
+                    GetPixel(source, srcWidth, x1, y2),
+                    GetPixel(source, srcWidth, x2, y2),
+                    fx, fy
+                );
 
-                var p = InterpolatePixels(p11, p21, p12, p22, fx, fy);
-
-                var targetIndex = (y * scaledWidth + x) * 4;
-                scaledPixels[targetIndex] = p.R;
-                scaledPixels[targetIndex + 1] = p.G;
-                scaledPixels[targetIndex + 2] = p.B;
-                scaledPixels[targetIndex + 3] = p.A;
+                var i = (y * dstWidth + x) * 4;
+                result[i] = p.R;
+                result[i + 1] = p.G;
+                result[i + 2] = p.B;
+                result[i + 3] = p.A;
             }
         }
 
-        var finalPixels = new byte[targetSize * targetSize * 4];
+        return result;
+    }
 
-        for (int y = 0; y < targetSize; y++)
+    private static byte[] PlaceOnCanvas(
+        byte[] scaledPixels, uint scaledWidth, uint scaledHeight,
+        int canvasSize, int offsetX, int offsetY,
+        byte fillR, byte fillG, byte fillB, byte fillA)
+    {
+        var canvas = new byte[canvasSize * canvasSize * 4];
+
+        for (int y = 0; y < canvasSize; y++)
         {
-            for (int x = 0; x < targetSize; x++)
+            for (int x = 0; x < canvasSize; x++)
             {
-                var srcX = x + offsetX;
-                var srcY = y + offsetY;
+                var ci = (y * canvasSize + x) * 4;
+                var sx = x + offsetX;
+                var sy = y + offsetY;
 
-                var targetIndex = (y * targetSize + x) * 4;
-
-                if (srcX < scaledWidth && srcY < scaledHeight)
+                if (sx >= 0 && sx < scaledWidth && sy >= 0 && sy < scaledHeight)
                 {
-                    var sourceIndex = (srcY * scaledWidth + srcX) * 4;
-                    finalPixels[targetIndex] = scaledPixels[sourceIndex];
-                    finalPixels[targetIndex + 1] = scaledPixels[sourceIndex + 1];
-                    finalPixels[targetIndex + 2] = scaledPixels[sourceIndex + 2];
-                    finalPixels[targetIndex + 3] = scaledPixels[sourceIndex + 3];
+                    var si = (sy * (int)scaledWidth + sx) * 4;
+                    canvas[ci] = scaledPixels[si];
+                    canvas[ci + 1] = scaledPixels[si + 1];
+                    canvas[ci + 2] = scaledPixels[si + 2];
+                    canvas[ci + 3] = scaledPixels[si + 3];
                 }
                 else
                 {
-                    finalPixels[targetIndex] = 0;
-                    finalPixels[targetIndex + 1] = 0;
-                    finalPixels[targetIndex + 2] = 0;
-                    finalPixels[targetIndex + 3] = 255;
+                    canvas[ci] = fillR;
+                    canvas[ci + 1] = fillG;
+                    canvas[ci + 2] = fillB;
+                    canvas[ci + 3] = fillA;
                 }
             }
         }
 
-        return finalPixels;
+        return canvas;
     }
 
     private static (byte R, byte G, byte B, byte A) GetPixel(byte[] pixels, uint width, uint x, uint y)

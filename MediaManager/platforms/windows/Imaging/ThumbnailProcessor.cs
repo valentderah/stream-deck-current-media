@@ -36,22 +36,28 @@ static class ThumbnailProcessor
 
                 var sourcePixelBytes = pixelData.DetachPixelData();
 
-                var finalPixels = ImageUtils.CropToSquare(
-                    sourcePixelBytes,
-                    decoder.PixelWidth,
-                    decoder.PixelHeight,
-                    TargetSize
-                );
+                var croppedPixels = ImageUtils.CropToSquare(sourcePixelBytes, decoder.PixelWidth, decoder.PixelHeight, TargetSize);
+                info.CoverArtBase64 = await ImageUtils.EncodeImageToBase64Async(croppedPixels, TargetSize);
 
-                info.CoverArtBase64 = await ImageUtils.EncodeImageToBase64Async(finalPixels, TargetSize);
-
-                var parts = await SplitImageIntoPartsAsync(finalPixels, TargetSize);
+                var parts = await SplitImageIntoPartsAsync(croppedPixels, TargetSize);
                 if (parts.Count >= 4)
                 {
                     info.CoverArtPart1Base64 = Convert.ToBase64String(parts[0]);
                     info.CoverArtPart2Base64 = Convert.ToBase64String(parts[1]);
                     info.CoverArtPart3Base64 = Convert.ToBase64String(parts[2]);
                     info.CoverArtPart4Base64 = Convert.ToBase64String(parts[3]);
+                }
+
+                var fitPixels = ImageUtils.FitToTop(sourcePixelBytes, decoder.PixelWidth, decoder.PixelHeight, TargetSize);
+                info.CoverArtFitBase64 = await ImageUtils.EncodeImageToBase64Async(fitPixels, TargetSize);
+
+                var fitParts = await SplitImageIntoPartsAsync(fitPixels, TargetSize);
+                if (fitParts.Count >= 4)
+                {
+                    info.CoverArtFitPart1Base64 = Convert.ToBase64String(fitParts[0]);
+                    info.CoverArtFitPart2Base64 = Convert.ToBase64String(fitParts[1]);
+                    info.CoverArtFitPart3Base64 = Convert.ToBase64String(fitParts[2]);
+                    info.CoverArtFitPart4Base64 = Convert.ToBase64String(fitParts[3]);
                 }
 
                 return;

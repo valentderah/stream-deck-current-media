@@ -1,13 +1,12 @@
 using System;
 using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Threading.Tasks;
 using BarRaider.SdTools;
 using BarRaider.SdTools.Wrappers;
+using CurrentMedia.Imaging;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Converters;
 
 namespace CurrentMedia.Actions;
 
@@ -18,30 +17,31 @@ public class NowPlayingAction : KeypadBase
     {
         public static PluginSettings CreateDefaultSettings()
         {
-            return new PluginSettings
-            {
-                TextDisplayMode = "both",
-                EnableMarquee = true,
-                Position = "none",
-                Action = "toggle",
-                OverlayDisplayMode = "none"
-            };
+            return new PluginSettings();
         }
 
         [JsonProperty(PropertyName = "textDisplayMode")]
-        public string TextDisplayMode { get; set; } = "both";
+        [JsonConverter(typeof(StringEnumConverter))]
+        public TextDisplayMode TextDisplayMode { get; set; } = TextDisplayMode.Both;
 
         [JsonProperty(PropertyName = "enableMarquee")]
         public bool EnableMarquee { get; set; } = true;
 
         [JsonProperty(PropertyName = "position")]
-        public string Position { get; set; } = "none";
+        [JsonConverter(typeof(StringEnumConverter))]
+        public ImagePosition Position { get; set; } = ImagePosition.None;
 
         [JsonProperty(PropertyName = "action")]
-        public string Action { get; set; } = "toggle";
+        [JsonConverter(typeof(StringEnumConverter))]
+        public ActionType Action { get; set; } = ActionType.Toggle;
 
         [JsonProperty(PropertyName = "overlayDisplayMode")]
-        public string OverlayDisplayMode { get; set; } = "none";
+        [JsonConverter(typeof(StringEnumConverter))]
+        public OverlayDisplayMode OverlayDisplayMode { get; set; } = OverlayDisplayMode.None;
+
+        [JsonProperty(PropertyName = "cropMode")]
+        [JsonConverter(typeof(StringEnumConverter))]
+        public CropMode CropMode { get; set; } = CropMode.Square;
     }
 
     private const int ImageSizeFull = 144;
@@ -74,7 +74,6 @@ public class NowPlayingAction : KeypadBase
     private async Task InitializeAndUpdateAsync()
     {
         await MediaSessionManager.Instance.InitializeAsync();
-        // Request immediate update when action is created
         await MediaSessionManager.Instance.RequestUpdateAsync();
     }
 
@@ -110,19 +109,19 @@ public class NowPlayingAction : KeypadBase
         {
             switch (_settings.Action)
             {
-                case "toggle":
+                case ActionType.Toggle:
                     await MediaSessionManager.Instance.TogglePlayPauseAsync();
                     break;
-                case "next":
+                case ActionType.Next:
                     await MediaSessionManager.Instance.NextTrackAsync();
                     break;
-                case "previous":
+                case ActionType.Previous:
                     await MediaSessionManager.Instance.PreviousTrackAsync();
                     break;
-                case "forward":
+                case ActionType.Forward:
                     await MediaSessionManager.Instance.SeekForwardAsync();
                     break;
-                case "backward":
+                case ActionType.Backward:
                     await MediaSessionManager.Instance.SeekBackwardAsync();
                     break;
             }
@@ -170,20 +169,13 @@ public class NowPlayingAction : KeypadBase
     {
         try
         {
-            var imageSize = (_settings.Position == "none" || _settings.Position == "no-image")
+            var imageSize = (_settings.Position == ImagePosition.None || _settings.Position == ImagePosition.NoImage)
                 ? ImageSizeFull : ImageSizeSingleCell;
             Image? baseImage = null;
 
-            if (_settings.Position != "no-image")
+            if (_settings.Position != ImagePosition.NoImage)
             {
-                string? base64Image = _settings.Position switch
-                {
-                    "top-left" => info.CoverArtPart1Base64,
-                    "top-right" => info.CoverArtPart2Base64,
-                    "bottom-left" => info.CoverArtPart3Base64,
-                    "bottom-right" => info.CoverArtPart4Base64,
-                    _ => info.CoverArtBase64
-                };
+                var base64Image = info.GetCoverArt(_settings.Position, _settings.CropMode);
 
                 if (!string.IsNullOrEmpty(base64Image))
                 {
@@ -193,118 +185,33 @@ public class NowPlayingAction : KeypadBase
                 }
             }
 
-            baseImage ??= CreatePlaceholderImage(imageSize);
+            baseImage ??= OverlayRenderer.CreatePlaceholderImage(imageSize, PlaceholderColor);
 
-            if (baseImage != null)
+            Image? finalImage = null;
+            try
             {
-                Image? finalImage = null;
-                try
+                if (_settings.OverlayDisplayMode != OverlayDisplayMode.None)
                 {
-                    if (_settings.OverlayDisplayMode != "none")
-                    {
-                        finalImage = ApplyOverlay(baseImage, info, _settings.OverlayDisplayMode);
-                    }
-                    else
-                    {
-                        finalImage = baseImage;
-                        baseImage = null; // Prevent double dispose
-                    }
+                    finalImage = OverlayRenderer.ApplyOverlay(baseImage, info, _settings.OverlayDisplayMode);
+                }
+                else
+                {
+                    finalImage = baseImage;
+                    baseImage = null;
+                }
 
-                    await Connection.SetImageAsync(finalImage);
-                }
-                finally
-                {
-                    finalImage?.Dispose();
-                    baseImage?.Dispose();
-                }
+                await Connection.SetImageAsync(finalImage);
+            }
+            finally
+            {
+                finalImage?.Dispose();
+                baseImage?.Dispose();
             }
         }
         catch (Exception ex)
         {
             Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error updating image: {ex.Message}");
         }
-    }
-
-    private Image CreatePlaceholderImage(int size)
-    {
-        var bitmap = new Bitmap(size, size);
-        using var g = Graphics.FromImage(bitmap);
-        using var brush = new SolidBrush(ColorTranslator.FromHtml(PlaceholderColor));
-        g.FillRectangle(brush, 0, 0, size, size);
-        return bitmap;
-    }
-
-    private Image ApplyOverlay(Image baseImage, MediaInfo info, string overlayMode)
-    {
-        var result = new Bitmap(baseImage.Width, baseImage.Height);
-        using var g = Graphics.FromImage(result);
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-
-        g.DrawImage(baseImage, 0, 0, baseImage.Width, baseImage.Height);
-
-        var padding = (int)(baseImage.Width * 0.05);
-        var iconSize = (int)(baseImage.Width * 0.25);
-
-        var showIcon = (overlayMode == "icon" || overlayMode == "both") && !string.IsNullOrEmpty(info.AppIconBase64);
-        var showStatus = (overlayMode == "status" || overlayMode == "both") && !string.IsNullOrEmpty(info.Status);
-
-        if (showIcon && !string.IsNullOrEmpty(info.AppIconBase64))
-        {
-            try
-            {
-                var iconBytes = Convert.FromBase64String(info.AppIconBase64);
-                using var iconMs = new MemoryStream(iconBytes);
-                using var iconImage = Image.FromStream(iconMs);
-
-                var iconX = padding;
-                var iconY = padding;
-                var radius = iconSize / 2;
-
-                using var bgBrush = new SolidBrush(Color.FromArgb(153, 0, 0, 0));
-                g.FillEllipse(bgBrush, iconX - 2, iconY - 2, iconSize + 4, iconSize + 4);
-
-                g.DrawImage(iconImage, iconX, iconY, iconSize, iconSize);
-            }
-            catch (Exception ex)
-            {
-                Logger.Instance.LogMessage(TracingLevel.WARN, $"Error drawing app icon overlay: {ex.Message}");
-            }
-        }
-
-        if (showStatus)
-        {
-            var statusX = baseImage.Width - padding - iconSize;
-            var statusY = padding;
-            var radius = iconSize / 2;
-
-            using var bgBrush = new SolidBrush(Color.FromArgb(153, 0, 0, 0));
-            g.FillEllipse(bgBrush, statusX - 2, statusY - 2, iconSize + 4, iconSize + 4);
-
-            using var iconBrush = new SolidBrush(Color.White);
-            var centerX = statusX + radius;
-            var centerY = statusY + radius;
-            var symbolSize = iconSize * 0.5f;
-
-            if (info.Status == "Playing")
-            {
-                var points = new PointF[]
-                {
-                    new PointF(centerX - symbolSize / 3, centerY - symbolSize / 2),
-                    new PointF(centerX + symbolSize / 2, centerY),
-                    new PointF(centerX - symbolSize / 3, centerY + symbolSize / 2)
-                };
-                g.FillPolygon(iconBrush, points);
-            }
-            else
-            {
-                var barWidth = symbolSize / 4;
-                var barHeight = symbolSize;
-                g.FillRectangle(iconBrush, centerX - symbolSize / 3, centerY - barHeight / 2, barWidth, barHeight);
-                g.FillRectangle(iconBrush, centerX + symbolSize / 6 - barWidth / 2, centerY - barHeight / 2, barWidth, barHeight);
-            }
-        }
-
-        return result;
     }
 
     private async Task UpdateTitleAsync(MediaInfo info)
@@ -320,19 +227,19 @@ public class NowPlayingAction : KeypadBase
             var parts = new System.Collections.Generic.List<string>();
             var textMode = _settings.TextDisplayMode;
 
-            if (textMode == "none")
+            if (textMode == TextDisplayMode.None)
             {
                 await Connection.SetTitleAsync(string.Empty);
                 return;
             }
 
-            if ((textMode == "both" || textMode == "title") && !string.IsNullOrEmpty(info.Title))
+            if ((textMode == TextDisplayMode.Both || textMode == TextDisplayMode.Title) && !string.IsNullOrEmpty(info.Title))
             {
                 var title = _settings.EnableMarquee ? GetMarqueeText(info.Title) : info.Title;
                 parts.Add(title);
             }
 
-            if ((textMode == "both" || textMode == "artists"))
+            if (textMode == TextDisplayMode.Both || textMode == TextDisplayMode.Artists)
             {
                 var artistText = info.Artists.Count > 0 ? string.Join(", ", info.Artists) : info.Artist;
                 if (!string.IsNullOrEmpty(artistText))
