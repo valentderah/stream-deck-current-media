@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.IO;
 using BarRaider.SdTools;
 
@@ -8,20 +9,20 @@ namespace CurrentMedia.Imaging;
 
 static class OverlayRenderer
 {
-    public static Image CreatePlaceholderImage(int size, string htmlColor)
+    public static Image CreateTransparentImage(int size)
     {
-        var bitmap = new Bitmap(size, size);
+        var bitmap = new Bitmap(size, size, PixelFormat.Format32bppArgb);
         using var g = Graphics.FromImage(bitmap);
-        using var brush = new SolidBrush(ColorTranslator.FromHtml(htmlColor));
-        g.FillRectangle(brush, 0, 0, size, size);
+        g.Clear(Color.Transparent);
         return bitmap;
     }
 
     public static Image ApplyOverlay(Image baseImage, MediaInfo info, OverlayDisplayMode overlayMode)
     {
-        var result = new Bitmap(baseImage.Width, baseImage.Height);
+        var result = new Bitmap(baseImage.Width, baseImage.Height, PixelFormat.Format32bppArgb);
         using var g = Graphics.FromImage(result);
         g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.Clear(Color.Transparent);
 
         g.DrawImage(baseImage, 0, 0, baseImage.Width, baseImage.Height);
 

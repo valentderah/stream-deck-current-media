@@ -47,7 +47,6 @@ public class NowPlayingAction : KeypadBase
 
     private const int ImageSizeFull = 144;
     private const int ImageSizeSingleCell = 72;
-    private const string PlaceholderColor = "#000000";
 
     private readonly PluginSettings _settings;
     private MediaInfo? _currentMediaInfo;
@@ -202,7 +201,7 @@ public class NowPlayingAction : KeypadBase
                 }
             }
 
-            baseImage ??= OverlayRenderer.CreatePlaceholderImage(imageSize, PlaceholderColor);
+            baseImage ??= OverlayRenderer.CreateTransparentImage(imageSize);
 
             Image? finalImage = null;
             try
