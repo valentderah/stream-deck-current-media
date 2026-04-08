@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using BarRaider.SdTools;
 using BarRaider.SdTools.Wrappers;
@@ -24,8 +25,8 @@ public class NowPlayingAction : KeypadBase
         [JsonConverter(typeof(StringEnumConverter))]
         public TextDisplayMode TextDisplayMode { get; set; } = TextDisplayMode.Both;
 
-        [JsonProperty(PropertyName = "enableMarquee")]
-        public bool EnableMarquee { get; set; } = true;
+        [JsonProperty(PropertyName = "marqueeSpeed")]
+        public int MarqueeSpeed { get; set; } = 40;
 
         [JsonProperty(PropertyName = "position")]
         [JsonConverter(typeof(StringEnumConverter))]
@@ -51,9 +52,33 @@ public class NowPlayingAction : KeypadBase
     private readonly PluginSettings _settings;
     private MediaInfo? _currentMediaInfo;
     private int _marqueeOffset;
-    private DateTime _lastMarqueeUpdate = DateTime.MinValue;
-    private const int MarqueeUpdateIntervalMs = 300;
+    private Timer? _marqueeTimer;
+    private const double MaxIntervalMs = 1500.0;
+    private const double MinIntervalMs = 500.0;
     private const int MarqueeVisibleChars = 10;
+
+    private double GetMarqueeIntervalMs()
+    {
+        if (_settings.MarqueeSpeed <= 0) return 0;
+        var speed = Math.Clamp(_settings.MarqueeSpeed, 1, 100);
+        return MaxIntervalMs * Math.Pow(MinIntervalMs / MaxIntervalMs, speed / 100.0);
+    }
+
+    private void RestartMarqueeTimer()
+    {
+        _marqueeTimer?.Dispose();
+        _marqueeTimer = null;
+
+        if (_settings.MarqueeSpeed <= 0) return;
+
+        var interval = (int)Math.Round(GetMarqueeIntervalMs());
+        _marqueeTimer = new Timer(_ =>
+        {
+            _marqueeOffset++;
+            if (_currentMediaInfo != null)
+                _ = UpdateTitleAsync(_currentMediaInfo);
+        }, null, interval, interval);
+    }
 
     public NowPlayingAction(ISDConnection connection, InitialPayload payload) : base(connection, payload)
     {
@@ -68,6 +93,7 @@ public class NowPlayingAction : KeypadBase
 
         MediaSessionManager.Instance.MediaInfoChanged += OnMediaInfoChanged;
         Connection.OnPropertyInspectorDidAppear += OnPropertyInspectorDidAppear;
+        RestartMarqueeTimer();
         _ = InitializeAndUpdateAsync();
     }
 
@@ -85,6 +111,8 @@ public class NowPlayingAction : KeypadBase
 
     public override void Dispose()
     {
+        _marqueeTimer?.Dispose();
+        _marqueeTimer = null;
         MediaSessionManager.Instance.MediaInfoChanged -= OnMediaInfoChanged;
         Connection.OnPropertyInspectorDidAppear -= OnPropertyInspectorDidAppear;
         Logger.Instance.LogMessage(TracingLevel.INFO, "NowPlayingAction disposed");
@@ -134,23 +162,12 @@ public class NowPlayingAction : KeypadBase
 
     public override void KeyReleased(KeyPayload payload) { }
 
-    public override async void OnTick()
-    {
-        if (_currentMediaInfo != null && _settings.EnableMarquee)
-        {
-            var now = DateTime.Now;
-            if ((now - _lastMarqueeUpdate).TotalMilliseconds >= MarqueeUpdateIntervalMs)
-            {
-                _marqueeOffset++;
-                _lastMarqueeUpdate = now;
-                await UpdateTitleAsync(_currentMediaInfo);
-            }
-        }
-    }
+    public override void OnTick() { }
 
     public override void ReceivedSettings(ReceivedSettingsPayload payload)
     {
         Tools.AutoPopulateSettings(_settings, payload.Settings);
+        RestartMarqueeTimer();
         if (_currentMediaInfo != null)
         {
             _ = UpdateDisplayAsync(_currentMediaInfo);
@@ -235,7 +252,7 @@ public class NowPlayingAction : KeypadBase
 
             if ((textMode == TextDisplayMode.Both || textMode == TextDisplayMode.Title) && !string.IsNullOrEmpty(info.Title))
             {
-                var title = _settings.EnableMarquee ? GetMarqueeText(info.Title) : info.Title;
+                var title = _settings.MarqueeSpeed > 0 ? GetMarqueeText(info.Title) : info.Title;
                 parts.Add(title);
             }
 
@@ -244,7 +261,7 @@ public class NowPlayingAction : KeypadBase
                 var artistText = info.Artists.Count > 0 ? string.Join(", ", info.Artists) : info.Artist;
                 if (!string.IsNullOrEmpty(artistText))
                 {
-                    var artist = _settings.EnableMarquee ? GetMarqueeText(artistText) : artistText;
+                    var artist = _settings.MarqueeSpeed > 0 ? GetMarqueeText(artistText) : artistText;
                     parts.Add(artist);
                 }
             }

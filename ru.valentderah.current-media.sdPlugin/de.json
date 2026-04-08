@@ -31,7 +31,7 @@
 		"ActionOnClick": "Aktion beim Klicken",
 		"TextDisplay": "Textanzeige",
 		"OverlayDisplay": "Overlay-Anzeige",
-		"EnableMarquee": "Laufschrift aktivieren",
+		"MarqueeSpeed": "Lauftext-Geschwindigkeit",
 		"Full": "Vollbild",
 		"TopLeft": "Oben links (2x2)",
 		"TopRight": "Oben rechts (2x2)",

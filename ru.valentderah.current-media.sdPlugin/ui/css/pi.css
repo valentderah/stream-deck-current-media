@@ -111,3 +111,45 @@ input[type="checkbox"] {
 ::-webkit-scrollbar-thumb:hover {
 	background: #5a5a5a;
 }
+
+.sdpi-range-wrapper {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	gap: 8px;
+}
+
+input[type="range"] {
+	-webkit-appearance: none;
+	width: 100%;
+	background: transparent;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	height: 16px;
+	width: 16px;
+	border-radius: 50%;
+	background: #527ebd;
+	cursor: pointer;
+	margin-top: -6px;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+	width: 100%;
+	height: 4px;
+	cursor: pointer;
+	background: var(--input-bg);
+	border-radius: 2px;
+	border: 1px solid var(--border-color);
+}
+
+input[type="range"]:focus {
+	outline: none;
+}
+
+.sdpi-range-value {
+	min-width: 24px;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}

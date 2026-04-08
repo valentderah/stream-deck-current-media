@@ -61,8 +61,12 @@
         </div>
 
         <div class="sdpi-item">
-            <label class="sdpi-item-label" data-i18n="EnableMarquee">Enable Marquee</label>
-            <input class="sdpi-item-value" type="checkbox" data-setting="enableMarquee" data-default="true" />
+            <label class="sdpi-item-label" data-i18n="MarqueeSpeed">Marquee Speed</label>
+            <div class="sdpi-range-wrapper">
+                <input class="sdpi-item-value" type="range" min="0" max="100" step="1"
+                       data-setting="marqueeSpeed" data-default="40" />
+                <span class="sdpi-range-value" data-for="marqueeSpeed">40</span>
+            </div>
         </div>
     </div>
 

@@ -31,7 +31,7 @@
 		"ActionOnClick": "Action au clic",
 		"TextDisplay": "Affichage du texte",
 		"OverlayDisplay": "Affichage de la superposition",
-		"EnableMarquee": "Activer le défilement",
+		"MarqueeSpeed": "Vitesse du défilement",
 		"Full": "Plein",
 		"TopLeft": "Haut gauche (2x2)",
 		"TopRight": "Haut droit (2x2)",

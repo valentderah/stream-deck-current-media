@@ -31,7 +31,7 @@
 		"ActionOnClick": "Acción al hacer clic",
 		"TextDisplay": "Visualización de texto",
 		"OverlayDisplay": "Visualización de superposición",
-		"EnableMarquee": "Activar marquesina",
+		"MarqueeSpeed": "Velocidad del marquesina",
 		"Full": "Completo",
 		"TopLeft": "Arriba izquierda (2x2)",
 		"TopRight": "Arriba derecha (2x2)",

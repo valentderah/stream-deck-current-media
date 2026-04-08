@@ -31,7 +31,7 @@
 		"ActionOnClick": "點擊操作",
 		"TextDisplay": "文字顯示",
 		"OverlayDisplay": "疊加顯示",
-		"EnableMarquee": "啟用跑馬燈",
+		"MarqueeSpeed": "捲動速度",
 		"Full": "完整",
 		"TopLeft": "左上 (2x2)",
 		"TopRight": "右上 (2x2)",

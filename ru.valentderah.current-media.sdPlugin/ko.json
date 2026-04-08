@@ -31,7 +31,7 @@
 		"ActionOnClick": "클릭 시 동작",
 		"TextDisplay": "텍스트 표시",
 		"OverlayDisplay": "오버레이 표시",
-		"EnableMarquee": "마퀴 활성화",
+		"MarqueeSpeed": "마키 속도",
 		"Full": "전체",
 		"TopLeft": "왼쪽 위 (2x2)",
 		"TopRight": "오른쪽 위 (2x2)",

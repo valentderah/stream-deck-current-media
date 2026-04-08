@@ -31,7 +31,7 @@
 		"ActionOnClick": "Action on Click",
 		"TextDisplay": "Text Display",
 		"OverlayDisplay": "Overlay Display",
-		"EnableMarquee": "Enable Marquee",
+		"MarqueeSpeed": "Marquee Speed",
 		"Full": "Full",
 		"TopLeft": "Top Left (2x2)",
 		"TopRight": "Top Right (2x2)",

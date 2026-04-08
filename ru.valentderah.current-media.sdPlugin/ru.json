@@ -31,7 +31,7 @@
 		"ActionOnClick": "Действие по нажатию",
 		"TextDisplay": "Отображение текста",
 		"OverlayDisplay": "Отображение оверлея",
-		"EnableMarquee": "Бегущая строка",
+		"MarqueeSpeed": "Скорость прокрутки",
 		"Full": "Полное",
 		"TopLeft": "Верх лево (2x2)",
 		"TopRight": "Верх право (2x2)",

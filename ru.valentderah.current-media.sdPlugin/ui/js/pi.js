@@ -10,7 +10,13 @@
 		document.querySelectorAll("[data-setting][data-default]").forEach(function (el) {
 			var key = el.getAttribute("data-setting");
 			var value = el.getAttribute("data-default");
-			defaults[key] = el.type === "checkbox" ? value === "true" : value;
+			if (el.type === "checkbox") {
+				defaults[key] = value === "true";
+			} else if (el.type === "range") {
+				defaults[key] = parseInt(value, 10);
+			} else {
+				defaults[key] = value;
+			}
 		});
 		return defaults;
 	}
@@ -85,15 +91,27 @@
 			} else {
 				el.value = value;
 			}
+
+			if (el.type === "range") {
+				var label = document.querySelector('.sdpi-range-value[data-for="' + key + '"]');
+				if (label) label.textContent = value;
+			}
 		});
 	}
 
 	function bindSettingListeners() {
 		document.querySelectorAll("[data-setting]").forEach(function (el) {
-			var eventType = el.type === "checkbox" ? "change" : "change";
+			var eventType = el.type === "range" ? "input" : "change";
 			el.addEventListener(eventType, function () {
 				var key = el.getAttribute("data-setting");
-				settings[key] = el.type === "checkbox" ? el.checked : el.value;
+				var val = el.type === "checkbox" ? el.checked : (el.type === "range" ? parseInt(el.value, 10) : el.value);
+				settings[key] = val;
+				
+				if (el.type === "range") {
+					var label = document.querySelector('.sdpi-range-value[data-for="' + key + '"]');
+					if (label) label.textContent = val;
+				}
+
 				sendSettings();
 			});
 		});

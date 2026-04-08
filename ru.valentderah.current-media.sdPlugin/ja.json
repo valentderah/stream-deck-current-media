@@ -31,7 +31,7 @@
 		"ActionOnClick": "クリック時の動作",
 		"TextDisplay": "テキスト表示",
 		"OverlayDisplay": "オーバーレイ表示",
-		"EnableMarquee": "マーキーを有効にする",
+		"MarqueeSpeed": "マーキー速度",
 		"Full": "フル",
 		"TopLeft": "左上 (2x2)",
 		"TopRight": "右上 (2x2)",
