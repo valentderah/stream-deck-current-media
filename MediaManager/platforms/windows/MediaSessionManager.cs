@@ -422,7 +422,8 @@ public class MediaSessionManager
             var timelineProperties = activeSession.GetTimelineProperties();
             if (timelineProperties == null) return;
 
-            var newPosition = timelineProperties.Position + offset;
+            var currentPosition = GetEffectivePlaybackPosition(timelineProperties, playbackInfo.PlaybackStatus);
+            var newPosition = currentPosition + offset;
 
             if (newPosition < timelineProperties.StartTime)
             {
@@ -440,5 +441,18 @@ public class MediaSessionManager
         {
             Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error seeking: {ex.Message}");
         }
+    }
+
+    private static TimeSpan GetEffectivePlaybackPosition(
+        GlobalSystemMediaTransportControlsSessionTimelineProperties timeline,
+        GlobalSystemMediaTransportControlsSessionPlaybackStatus status)
+    {
+        var position = timeline.Position;
+        if (status == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
+        {
+            position += DateTimeOffset.UtcNow - timeline.LastUpdatedTime;
+        }
+
+        return position;
     }
 }
