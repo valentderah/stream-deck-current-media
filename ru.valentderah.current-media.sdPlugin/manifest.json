@@ -97,7 +97,8 @@
 	],
 	"Category": "Current Media (Now Playing)",
 	"CategoryIcon": "imgs/plugin/category-icon",
-	"CodePath": "CurrentMedia.exe",
+	"CodePath": "win/StreamDeckCurrentMedia.exe",
+	"CodePathMac": "mac/entry.sh",
 	"Description": "This plugin displays cover for the active media player (Chrome, YouTube, Spotify, Yandex Music, etc.) and allows you to control playback directly from Stream Deck.",
 	"Icon": "imgs/plugin/marketplace",
 	"SDKVersion": 3,
@@ -108,6 +109,10 @@
 		{
 			"Platform": "windows",
 			"MinimumVersion": "10"
+		},
+		{
+			"Platform": "mac",
+			"MinimumVersion": "10.15"
 		}
 	],
 	"UUID": "ru.valentderah.current-media"

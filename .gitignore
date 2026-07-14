@@ -62,3 +62,8 @@ logs/
 
 *.tmp
 *.temp
+
+ru.valentderah.current-media.sdPlugin/win/
+ru.valentderah.current-media.sdPlugin/mac/
+
+docs/
