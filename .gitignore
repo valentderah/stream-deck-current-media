@@ -10,10 +10,6 @@ dist/
 build/
 *.tsbuildinfo
 
-*.sdPlugin/bin/
-*.sdPlugin/logs/
-*.sdPlugin/*.js.map
-
 .idea/
 .vscode/
 *.swp
@@ -60,9 +56,6 @@ logs/
 
 *.tmp
 *.temp
-
-ru.valentderah.current-media.sdPlugin/win/
-ru.valentderah.current-media.sdPlugin/mac/
 
 # mediaremote-adapter: скачивается и собирается в scripts/build-macos.sh
 native/mediaremote-adapter/src/
