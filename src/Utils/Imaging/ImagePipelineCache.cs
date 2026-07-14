@@ -26,7 +26,7 @@ sealed class ImagePipelineCache : IDisposable
                 _bitmaps?.Icon?.Dispose();
                 if (_bitmaps != null)
                 {
-                    _bitmaps.Icon = SkiaImageExtensions.DecodeFromBase64(iconBase64);
+                    _bitmaps.Icon = ImageExtensions.DecodeFromBase64(iconBase64);
                 }
 
                 _iconKey = iconBase64;

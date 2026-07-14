@@ -8,20 +8,24 @@ namespace CurrentMedia.Mac;
 public sealed class MacMediaManager : IMediaManager
 {
     private const int MaxCrashRetries = 3;
-    private const string DataPrefix = "DATA:";
+    private const int SeekStepSeconds = 10;
+    private const int StreamDebounceMs = 250;
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
+    private const int CommandTogglePlayPause = 2;
+    private const int CommandNextTrack = 4;
+    private const int CommandPreviousTrack = 5;
 
     private readonly object _processLock = new();
-    private readonly SemaphoreSlim _stdinSemaphore = new(1, 1);
+    private readonly SemaphoreSlim _commandSemaphore = new(1, 1);
 
-    private Process? _process;
+    private Process? _streamProcess;
     private bool _disposed;
     private bool _isInitialized;
     private int _crashRetryCount;
+    private double _lastElapsedTime;
+    private string _adapterRoot = "";
+    private string _frameworkPath = "";
+    private string _perlScriptPath = "";
 
     public event EventHandler<MediaState>? MediaStateChanged;
 
@@ -32,7 +36,7 @@ public sealed class MacMediaManager : IMediaManager
             return;
         }
 
-        if (!StartBridgeProcess())
+        if (!PrepareAdapterAssets() || !StartStreamProcess())
         {
             return;
         }
@@ -41,21 +45,17 @@ public sealed class MacMediaManager : IMediaManager
         await RequestUpdateAsync();
     }
 
-    public Task RequestUpdateAsync()
-    {
-        // Bridge emits an initial snapshot on process start; no explicit refresh command needed.
-        return Task.CompletedTask;
-    }
+    public Task RequestUpdateAsync() => Task.CompletedTask;
 
-    public Task PlayPauseAsync() => SendCommandAsync("play_pause");
+    public Task PlayPauseAsync() => RunAdapterCommandAsync("send", CommandTogglePlayPause.ToString());
 
-    public Task NextAsync() => SendCommandAsync("next");
+    public Task NextAsync() => RunAdapterCommandAsync("send", CommandNextTrack.ToString());
 
-    public Task PreviousAsync() => SendCommandAsync("previous");
+    public Task PreviousAsync() => RunAdapterCommandAsync("send", CommandPreviousTrack.ToString());
 
-    public Task SeekForwardAsync() => SendCommandAsync("seek_forward");
+    public Task SeekForwardAsync() => SeekByAsync(SeekStepSeconds);
 
-    public Task SeekBackwardAsync() => SendCommandAsync("seek_backward");
+    public Task SeekBackwardAsync() => SeekByAsync(-SeekStepSeconds);
 
     public void Dispose()
     {
@@ -66,13 +66,79 @@ public sealed class MacMediaManager : IMediaManager
 
         _disposed = true;
         KillProcess();
-        _stdinSemaphore.Dispose();
+        _commandSemaphore.Dispose();
     }
 
-    private string ResolveBridgePath() =>
-        Path.Combine(AppContext.BaseDirectory, "media-bridge");
+    private bool PrepareAdapterAssets()
+    {
+        var macDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, ".."));
+        var sourceFramework = Path.Combine(macDir, "MediaRemoteAdapter.framework");
+        var sourcePerlScript = Path.Combine(macDir, "mediaremote-adapter.pl");
 
-    private bool StartBridgeProcess()
+        if (!File.Exists(sourcePerlScript) || !Directory.Exists(sourceFramework))
+        {
+            Logger.Instance.LogMessage(
+                TracingLevel.ERROR,
+                $"mediaremote-adapter assets not found in {macDir}. macOS media support is unavailable.");
+            return false;
+        }
+
+        var tempDir = Path.Combine(Path.GetTempPath(), "ru.valentderah.current-media", "mediaremote-adapter");
+        Directory.CreateDirectory(tempDir);
+
+        _adapterRoot = tempDir;
+        _frameworkPath = Path.Combine(tempDir, "MediaRemoteAdapter.framework");
+        _perlScriptPath = Path.Combine(tempDir, "mediaremote-adapter.pl");
+
+        CopyIfNewer(sourcePerlScript, _perlScriptPath, isExecutable: true);
+        CopyFrameworkIfNewer(sourceFramework, _frameworkPath);
+        return true;
+    }
+
+    private static void CopyIfNewer(string source, string destination, bool isExecutable)
+    {
+        var sourceTime = File.GetLastWriteTimeUtc(source);
+        if (File.Exists(destination) && File.GetLastWriteTimeUtc(destination) >= sourceTime)
+        {
+            return;
+        }
+
+        File.Copy(source, destination, overwrite: true);
+        if (isExecutable)
+        {
+            File.SetUnixFileMode(
+                destination,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+                UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+                UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+        }
+    }
+
+    private static void CopyFrameworkIfNewer(string sourceFramework, string destinationFramework)
+    {
+        var sourceBinary = Path.Combine(sourceFramework, "MediaRemoteAdapter");
+        if (!File.Exists(sourceBinary))
+        {
+            return;
+        }
+
+        var destinationBinary = Path.Combine(destinationFramework, "MediaRemoteAdapter");
+        var sourceTime = File.GetLastWriteTimeUtc(sourceBinary);
+        if (File.Exists(destinationBinary) && File.GetLastWriteTimeUtc(destinationBinary) >= sourceTime)
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(destinationFramework);
+        File.Copy(sourceBinary, destinationBinary, overwrite: true);
+        File.SetUnixFileMode(
+            destinationBinary,
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+            UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+            UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+    }
+
+    private bool StartStreamProcess()
     {
         lock (_processLock)
         {
@@ -81,52 +147,48 @@ public sealed class MacMediaManager : IMediaManager
                 return false;
             }
 
-            if (_process is { HasExited: false })
+            if (_streamProcess is { HasExited: false })
             {
                 return true;
-            }
-
-            var bridgePath = ResolveBridgePath();
-            if (!File.Exists(bridgePath))
-            {
-                Logger.Instance.LogMessage(
-                    TracingLevel.ERROR,
-                    $"media-bridge not found at {bridgePath}. macOS media support is unavailable.");
-                return false;
             }
 
             try
             {
                 KillProcessLocked();
 
-                var baseDir = AppContext.BaseDirectory;
-                _process = new Process
+                _streamProcess = new Process
                 {
                     StartInfo = new ProcessStartInfo
                     {
-                        FileName = bridgePath,
+                        FileName = "/usr/bin/perl",
                         UseShellExecute = false,
-                        RedirectStandardInput = true,
+                        RedirectStandardInput = false,
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
                         CreateNoWindow = true,
-                        WorkingDirectory = baseDir
+                        WorkingDirectory = _adapterRoot
                     }
                 };
 
-                _process.Start();
-                _ = ReadStdoutLoopAsync(_process);
-                _ = ReadStderrLoopAsync(_process);
+                _streamProcess.StartInfo.ArgumentList.Add(_perlScriptPath);
+                _streamProcess.StartInfo.ArgumentList.Add(_frameworkPath);
+                _streamProcess.StartInfo.ArgumentList.Add("stream");
+                _streamProcess.StartInfo.ArgumentList.Add("--no-diff");
+                _streamProcess.StartInfo.ArgumentList.Add($"--debounce={StreamDebounceMs}");
+
+                _streamProcess.Start();
+                _ = ReadStdoutLoopAsync(_streamProcess);
+                _ = ReadStderrLoopAsync(_streamProcess);
 
                 _crashRetryCount = 0;
-                Logger.Instance.LogMessage(TracingLevel.INFO, "media-bridge process started.");
+                Logger.Instance.LogMessage(TracingLevel.INFO, "mediaremote-adapter stream started.");
                 return true;
             }
             catch (Exception ex)
             {
                 Logger.Instance.LogMessage(
                     TracingLevel.ERROR,
-                    $"Failed to start media-bridge: {ex.Message}");
+                    $"Failed to start mediaremote-adapter stream: {ex.Message}");
                 return false;
             }
         }
@@ -144,18 +206,12 @@ public sealed class MacMediaManager : IMediaManager
                     break;
                 }
 
-                if (!line.StartsWith(DataPrefix, StringComparison.Ordinal))
-                {
-                    Logger.Instance.LogMessage(TracingLevel.TRACE, $"media-bridge stdout: {line}");
-                    continue;
-                }
-
-                TryDeserializeAndNotify(line[DataPrefix.Length..]);
+                TryDeserializeAndNotify(line);
             }
         }
         catch (Exception ex) when (!_disposed)
         {
-            Logger.Instance.LogMessage(TracingLevel.ERROR, $"media-bridge stdout read error: {ex.Message}");
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"mediaremote-adapter stdout read error: {ex.Message}");
         }
 
         if (!_disposed)
@@ -176,12 +232,12 @@ public sealed class MacMediaManager : IMediaManager
                     break;
                 }
 
-                Logger.Instance.LogMessage(TracingLevel.WARN, $"media-bridge stderr: {line}");
+                Logger.Instance.LogMessage(TracingLevel.WARN, $"mediaremote-adapter stderr: {line}");
             }
         }
         catch (Exception ex) when (!_disposed)
         {
-            Logger.Instance.LogMessage(TracingLevel.ERROR, $"media-bridge stderr read error: {ex.Message}");
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"mediaremote-adapter stderr read error: {ex.Message}");
         }
     }
 
@@ -189,20 +245,27 @@ public sealed class MacMediaManager : IMediaManager
     {
         try
         {
-            var dto = JsonSerializer.Deserialize<BridgeStateDto>(json, JsonOptions);
-            if (dto == null)
+            var message = JsonSerializer.Deserialize(json, AdapterJsonContext.Default.AdapterStreamMessage);
+            if (message?.Type != "data" || message.Payload == null)
             {
-                Logger.Instance.LogMessage(TracingLevel.WARN, "media-bridge DATA line deserialized to null.");
                 return;
             }
 
-            var mediaState = dto.ToMediaState();
+            var payload = message.Payload;
+            _lastElapsedTime = payload.ElapsedTimeNow ?? payload.ElapsedTime;
+
+            var bundleId = !string.IsNullOrEmpty(payload.ParentApplicationBundleIdentifier)
+                ? payload.ParentApplicationBundleIdentifier
+                : payload.BundleIdentifier;
+            var appIconBase64 = MacAppIconHelper.GetAppIconBase64(bundleId);
+
+            var mediaState = payload.ToMediaState(appIconBase64);
             ImagePipeline.PrepareCache(mediaState);
             MediaStateChanged?.Invoke(this, mediaState);
         }
         catch (JsonException ex)
         {
-            Logger.Instance.LogMessage(TracingLevel.WARN, $"Invalid media-bridge JSON: {ex.Message}");
+            Logger.Instance.LogMessage(TracingLevel.WARN, $"Invalid mediaremote-adapter JSON: {ex.Message}");
         }
     }
 
@@ -210,22 +273,22 @@ public sealed class MacMediaManager : IMediaManager
     {
         lock (_processLock)
         {
-            if (_disposed || _process != deadProcess)
+            if (_disposed || _streamProcess != deadProcess)
             {
                 return;
             }
 
-            _process = null;
+            _streamProcess = null;
         }
 
-        Logger.Instance.LogMessage(TracingLevel.WARN, "media-bridge process exited unexpectedly.");
+        Logger.Instance.LogMessage(TracingLevel.WARN, "mediaremote-adapter stream exited unexpectedly.");
 
         _crashRetryCount++;
         if (_crashRetryCount > MaxCrashRetries)
         {
             Logger.Instance.LogMessage(
                 TracingLevel.ERROR,
-                $"media-bridge failed after {MaxCrashRetries} restart attempts.");
+                $"mediaremote-adapter failed after {MaxCrashRetries} restart attempts.");
             NotifyInactive();
             return;
         }
@@ -233,7 +296,7 @@ public sealed class MacMediaManager : IMediaManager
         var delayMs = (int)Math.Pow(2, _crashRetryCount - 1) * 1000;
         Logger.Instance.LogMessage(
             TracingLevel.INFO,
-            $"Restarting media-bridge in {delayMs}ms (attempt {_crashRetryCount}/{MaxCrashRetries}).");
+            $"Restarting mediaremote-adapter in {delayMs}ms (attempt {_crashRetryCount}/{MaxCrashRetries}).");
 
         await Task.Delay(delayMs);
 
@@ -242,53 +305,72 @@ public sealed class MacMediaManager : IMediaManager
             return;
         }
 
-        StartBridgeProcess();
+        StartStreamProcess();
     }
 
-    private async Task SendCommandAsync(string command)
+    private Task RunAdapterCommandAsync(string function, string argument)
     {
         if (_disposed)
         {
-            return;
+            return Task.CompletedTask;
         }
 
-        await _stdinSemaphore.WaitAsync();
-        try
+        return Task.Run(async () =>
         {
-            Process? process = GetRunningProcess();
-            if (process == null && !_isInitialized)
+            await _commandSemaphore.WaitAsync();
+            try
             {
-                await InitializeAsync();
-                process = GetRunningProcess();
-            }
+                if (!_isInitialized && !PrepareAdapterAssets())
+                {
+                    return;
+                }
 
-            if (process == null)
+                using var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "/usr/bin/perl",
+                        UseShellExecute = false,
+                        RedirectStandardError = true,
+                        RedirectStandardOutput = true,
+                        CreateNoWindow = true,
+                        WorkingDirectory = _adapterRoot
+                    }
+                };
+
+                process.StartInfo.ArgumentList.Add(_perlScriptPath);
+                process.StartInfo.ArgumentList.Add(_frameworkPath);
+                process.StartInfo.ArgumentList.Add(function);
+                process.StartInfo.ArgumentList.Add(argument);
+
+                process.Start();
+                var stderr = await process.StandardError.ReadToEndAsync();
+                await process.WaitForExitAsync();
+
+                if (process.ExitCode != 0)
+                {
+                    Logger.Instance.LogMessage(
+                        TracingLevel.WARN,
+                        $"mediaremote-adapter {function} {argument} failed ({process.ExitCode}): {stderr.Trim()}");
+                }
+            }
+            catch (Exception ex)
             {
                 Logger.Instance.LogMessage(
-                    TracingLevel.WARN,
-                    $"Cannot send cmd:{command} — media-bridge is not running.");
-                return;
+                    TracingLevel.ERROR,
+                    $"Failed to run mediaremote-adapter {function} {argument}: {ex.Message}");
             }
-
-            await process.StandardInput.WriteLineAsync($"cmd:{command}");
-            await process.StandardInput.FlushAsync();
-        }
-        catch (Exception ex)
-        {
-            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Failed to send cmd:{command}: {ex.Message}");
-        }
-        finally
-        {
-            _stdinSemaphore.Release();
-        }
+            finally
+            {
+                _commandSemaphore.Release();
+            }
+        });
     }
 
-    private Process? GetRunningProcess()
+    private Task SeekByAsync(int offsetSeconds)
     {
-        lock (_processLock)
-        {
-            return _process is { HasExited: false } ? _process : null;
-        }
+        var targetMicros = (long)Math.Max(0, (_lastElapsedTime + offsetSeconds) * 1_000_000);
+        return RunAdapterCommandAsync("seek", targetMicros.ToString());
     }
 
     private void NotifyInactive()
@@ -307,26 +389,26 @@ public sealed class MacMediaManager : IMediaManager
 
     private void KillProcessLocked()
     {
-        if (_process == null)
+        if (_streamProcess == null)
         {
             return;
         }
 
         try
         {
-            if (!_process.HasExited)
+            if (!_streamProcess.HasExited)
             {
-                _process.Kill(entireProcessTree: true);
+                _streamProcess.Kill(entireProcessTree: true);
             }
         }
         catch (Exception ex)
         {
-            Logger.Instance.LogMessage(TracingLevel.WARN, $"Error stopping media-bridge: {ex.Message}");
+            Logger.Instance.LogMessage(TracingLevel.WARN, $"Error stopping mediaremote-adapter: {ex.Message}");
         }
         finally
         {
-            _process.Dispose();
-            _process = null;
+            _streamProcess.Dispose();
+            _streamProcess = null;
         }
     }
 }

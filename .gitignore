@@ -66,4 +66,8 @@ logs/
 ru.valentderah.current-media.sdPlugin/win/
 ru.valentderah.current-media.sdPlugin/mac/
 
+# mediaremote-adapter: скачивается и собирается в scripts/build-macos.sh
+native/mediaremote-adapter/src/
+native/mediaremote-adapter/build/
+
 docs/

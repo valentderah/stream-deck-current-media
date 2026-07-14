@@ -1,4 +1,5 @@
-using SkiaSharp;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace CurrentMedia.Imaging;
 
@@ -34,28 +35,28 @@ public static class ImagePipeline
                 ? ImageSizeFull
                 : ImageSizeSingleCell;
 
-            SKBitmap baseBitmap;
+            Image<Rgba32> baseBitmap;
             if (position == ImagePosition.NoImage || bitmaps == null)
             {
-                baseBitmap = SkiaImageExtensions.CreateTransparent(size);
+                baseBitmap = ImageExtensions.CreateTransparent(size);
             }
             else
             {
                 var cached = bitmaps.Get(position, cropMode);
                 if (cached == null)
                 {
-                    baseBitmap = SkiaImageExtensions.CreateTransparent(size);
+                    baseBitmap = ImageExtensions.CreateTransparent(size);
                 }
                 else
                 {
-                    baseBitmap = cached.Copy();
+                    baseBitmap = ImageExtensions.CloneImage(cached);
                 }
             }
 
             using (baseBitmap)
             using (var withOverlay = OverlayRenderer.Apply(baseBitmap, state, overlayMode, bitmaps?.Icon))
             {
-                return SkiaImageExtensions.ToPngDataUri(withOverlay);
+                return ImageExtensions.ToPngDataUri(withOverlay);
             }
         });
     }

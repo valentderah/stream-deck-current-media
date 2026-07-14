@@ -1,87 +1,87 @@
-using SkiaSharp;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Drawing;
+using SixLabors.ImageSharp.Drawing.Processing;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
 namespace CurrentMedia.Imaging;
 
 static class OverlayRenderer
 {
-    public static SKBitmap Apply(SKBitmap baseImage, MediaState info, OverlayDisplayMode mode, SKBitmap? iconBitmap)
+    private static readonly Color OverlayBg = Color.FromRgba(0, 0, 0, 153);
+    private static readonly Color SymbolColor = Color.White;
+
+    public static Image<Rgba32> Apply(
+        Image<Rgba32> baseImage,
+        MediaState info,
+        OverlayDisplayMode mode,
+        Image<Rgba32>? iconImage)
     {
-        var result = new SKBitmap(baseImage.Width, baseImage.Height, SKColorType.Rgba8888, SKAlphaType.Premul);
-
-        using var canvas = new SKCanvas(result);
-        canvas.Clear(SKColors.Transparent);
-
-        using var bitmapPaint = new SKPaint
-        {
-            IsAntialias = true,
-            FilterQuality = SKFilterQuality.Medium
-        };
-
-        canvas.DrawBitmap(baseImage, 0, 0, bitmapPaint);
+        var result = ImageExtensions.CloneImage(baseImage);
 
         var padding = (int)(baseImage.Width * 0.05);
         var iconSize = (int)(baseImage.Width * 0.25);
 
-        var showIcon = (mode == OverlayDisplayMode.Icon || mode == OverlayDisplayMode.Both) && iconBitmap != null;
-        var showStatus = (mode == OverlayDisplayMode.Status || mode == OverlayDisplayMode.Both) && !string.IsNullOrEmpty(info.Status);
+        var showIcon = (mode == OverlayDisplayMode.Icon || mode == OverlayDisplayMode.Both) && iconImage != null;
+        var showStatus = (mode == OverlayDisplayMode.Status || mode == OverlayDisplayMode.Both)
+            && !string.IsNullOrEmpty(info.Status);
 
         if (showIcon)
         {
-            using var bgPaint = new SKPaint
+            var bgRect = new RectangleF(padding - 2, padding - 2, iconSize + 4, iconSize + 4);
+            using var resizedIcon = iconImage!.Clone(ctx => ctx.Resize(iconSize, iconSize));
+            result.Mutate(ctx =>
             {
-                Color = new SKColor(0, 0, 0, 153),
-                IsAntialias = true,
-                Style = SKPaintStyle.Fill
-            };
-
-            canvas.DrawOval(new SKRect(padding - 2, padding - 2, padding + iconSize + 2, padding + iconSize + 2), bgPaint);
-            canvas.DrawBitmap(iconBitmap, new SKRect(padding, padding, padding + iconSize, padding + iconSize), bitmapPaint);
+                ctx.Fill(OverlayBg, CreateEllipse(bgRect));
+                ctx.DrawImage(resizedIcon, new Point(padding, padding), 1f);
+            });
         }
 
         if (showStatus)
         {
             var statusX = baseImage.Width - padding - iconSize;
             var statusY = padding;
-            var radius = iconSize / 2f;
+            var bgRect = new RectangleF(statusX - 2, statusY - 2, iconSize + 4, iconSize + 4);
 
-            using var bgPaint = new SKPaint
+            result.Mutate(ctx =>
             {
-                Color = new SKColor(0, 0, 0, 153),
-                IsAntialias = true,
-                Style = SKPaintStyle.Fill
-            };
+                ctx.Fill(OverlayBg, CreateEllipse(bgRect));
 
-            canvas.DrawOval(new SKRect(statusX - 2, statusY - 2, statusX + iconSize + 2, statusY + iconSize + 2), bgPaint);
+                var centerX = statusX + iconSize / 2f;
+                var centerY = statusY + iconSize / 2f;
+                var symbolSize = iconSize * 0.5f;
 
-            using var symbolPaint = new SKPaint
-            {
-                Color = SKColors.White,
-                IsAntialias = true,
-                Style = SKPaintStyle.Fill
-            };
-
-            var centerX = statusX + radius;
-            var centerY = statusY + radius;
-            var symbolSize = iconSize * 0.5f;
-
-            if (info.Status == "Playing")
-            {
-                using var path = new SKPath();
-                path.MoveTo(centerX - symbolSize / 3, centerY - symbolSize / 2);
-                path.LineTo(centerX + symbolSize / 2, centerY);
-                path.LineTo(centerX - symbolSize / 3, centerY + symbolSize / 2);
-                path.Close();
-                canvas.DrawPath(path, symbolPaint);
-            }
-            else
-            {
-                var barWidth = symbolSize / 4;
-                var barHeight = symbolSize;
-                canvas.DrawRect(SKRect.Create(centerX - symbolSize / 3, centerY - barHeight / 2, barWidth, barHeight), symbolPaint);
-                canvas.DrawRect(SKRect.Create(centerX + symbolSize / 6 - barWidth / 2, centerY - barHeight / 2, barWidth, barHeight), symbolPaint);
-            }
+                if (info.Status == "Playing")
+                {
+                    var points = new PointF[]
+                    {
+                        new(centerX - symbolSize / 3, centerY - symbolSize / 2),
+                        new(centerX + symbolSize / 2, centerY),
+                        new(centerX - symbolSize / 3, centerY + symbolSize / 2)
+                    };
+                    ctx.FillPolygon(SymbolColor, points);
+                }
+                else
+                {
+                    var barWidth = symbolSize / 4;
+                    var barHeight = symbolSize;
+                    ctx.Fill(SymbolColor, new RectangularPolygon(
+                        centerX - symbolSize / 3, centerY - barHeight / 2, barWidth, barHeight));
+                    ctx.Fill(SymbolColor, new RectangularPolygon(
+                        centerX + symbolSize / 6 - barWidth / 2, centerY - barHeight / 2, barWidth, barHeight));
+                }
+            });
         }
 
         return result;
+    }
+
+    private static EllipsePolygon CreateEllipse(RectangleF rect)
+    {
+        return new EllipsePolygon(
+            rect.X + rect.Width / 2f,
+            rect.Y + rect.Height / 2f,
+            rect.Width / 2f,
+            rect.Height / 2f);
     }
 }

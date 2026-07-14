@@ -1,6 +1,5 @@
-SWIFT_FILES = main.swift MediaRemoteBridge.swift JsonSerializer.swift
-FRAMEWORKS = -framework Foundation -framework AppKit \
-             -F /System/Library/PrivateFrameworks -framework MediaRemote
+SWIFT_FILES = main.swift MediaRemoteClient.swift MediaRemoteBridge.swift JsonSerializer.swift
+FRAMEWORKS = -framework Foundation -framework AppKit
 
 media-bridge: $(SWIFT_FILES) MediaRemote.h
 	swiftc -O $(SWIFT_FILES) \

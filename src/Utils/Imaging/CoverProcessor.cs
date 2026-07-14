@@ -1,4 +1,6 @@
-using SkiaSharp;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
 namespace CurrentMedia.Imaging;
 
@@ -9,12 +11,7 @@ static class CoverProcessor
 
     public static ProcessedBitmaps? Process(string coverBase64)
     {
-        if (string.IsNullOrEmpty(coverBase64))
-        {
-            return null;
-        }
-
-        using var decoded = SkiaImageExtensions.DecodeFromBase64(coverBase64);
+        using var decoded = ImageExtensions.DecodeFromBase64(coverBase64);
         if (decoded == null)
         {
             return null;
@@ -25,85 +22,54 @@ static class CoverProcessor
             SquareFull = CropToSquare(decoded, TargetSize)
         };
 
-        SKBitmap sq1, sq2, sq3, sq4;
-        SplitIntoParts(result.SquareFull!, out sq1, out sq2, out sq3, out sq4);
-        result.SquarePart1 = sq1;
-        result.SquarePart2 = sq2;
-        result.SquarePart3 = sq3;
-        result.SquarePart4 = sq4;
+        SplitIntoParts(result.SquareFull!, out var square1, out var square2, out var square3, out var square4);
+        result.SquarePart1 = square1;
+        result.SquarePart2 = square2;
+        result.SquarePart3 = square3;
+        result.SquarePart4 = square4;
 
         result.FitFull = FitToTop(decoded, TargetSize);
-        SKBitmap fq1, fq2, fq3, fq4;
-        SplitIntoParts(result.FitFull!, out fq1, out fq2, out fq3, out fq4);
-        result.FitPart1 = fq1;
-        result.FitPart2 = fq2;
-        result.FitPart3 = fq3;
-        result.FitPart4 = fq4;
+        SplitIntoParts(result.FitFull!, out var fit1, out var fit2, out var fit3, out var fit4);
+        result.FitPart1 = fit1;
+        result.FitPart2 = fit2;
+        result.FitPart3 = fit3;
+        result.FitPart4 = fit4;
 
         return result;
     }
 
-    private static SKBitmap CropToSquare(SKBitmap source, int targetSize)
+    private static Image<Rgba32> CropToSquare(Image<Rgba32> source, int targetSize)
     {
-        var width = source.Width;
-        var height = source.Height;
-        var minDimension = Math.Min(width, height);
-        var scale = (double)targetSize / minDimension;
-
-        var scaledWidth = Math.Max(1, (int)Math.Round(width * scale));
-        var scaledHeight = Math.Max(1, (int)Math.Round(height * scale));
-        var offsetX = scaledWidth > targetSize ? (scaledWidth - targetSize) / 2 : 0;
-        var offsetY = scaledHeight > targetSize ? (scaledHeight - targetSize) / 2 : 0;
-
-        var result = new SKBitmap(targetSize, targetSize, SKColorType.Rgba8888, SKAlphaType.Premul);
-        result.Erase(new SKColor(0, 0, 0, 255));
-
-        using var canvas = new SKCanvas(result);
-        using var paint = new SKPaint
+        return source.Clone(ctx => ctx.Resize(new ResizeOptions
         {
-            IsAntialias = true,
-            FilterQuality = SKFilterQuality.Medium
-        };
-
-        var destRect = SKRect.Create(-offsetX, -offsetY, scaledWidth, scaledHeight);
-        canvas.DrawBitmap(source, destRect, paint);
-
-        return result;
+            Size = new Size(targetSize, targetSize),
+            Mode = ResizeMode.Crop,
+            Position = AnchorPositionMode.Center
+        }));
     }
 
-    private static SKBitmap FitToTop(SKBitmap source, int targetSize)
+    private static Image<Rgba32> FitToTop(Image<Rgba32> source, int targetSize)
     {
-        var width = source.Width;
-        var height = source.Height;
-        var maxDimension = Math.Max(width, height);
-        var scale = (double)targetSize / maxDimension;
+        var result = new Image<Rgba32>(targetSize, targetSize);
+        result.Mutate(ctx => ctx.BackgroundColor(Color.Black));
 
-        var scaledWidth = Math.Max(1, (int)Math.Round(width * scale));
-        var scaledHeight = Math.Max(1, (int)Math.Round(height * scale));
-        var offsetX = -(targetSize - scaledWidth) / 2;
+        var scale = (double)targetSize / Math.Max(source.Width, source.Height);
+        var scaledWidth = Math.Max(1, (int)Math.Round(source.Width * scale));
+        var scaledHeight = Math.Max(1, (int)Math.Round(source.Height * scale));
+        var offsetX = (targetSize - scaledWidth) / 2;
 
-        var result = new SKBitmap(targetSize, targetSize, SKColorType.Rgba8888, SKAlphaType.Premul);
-        result.Erase(new SKColor(0, 0, 0, 255));
-
-        using var canvas = new SKCanvas(result);
-        using var paint = new SKPaint
-        {
-            IsAntialias = true,
-            FilterQuality = SKFilterQuality.Medium
-        };
-
-        var destRect = SKRect.Create(offsetX, 0, scaledWidth, scaledHeight);
-        canvas.DrawBitmap(source, destRect, paint);
+        using var scaled = source.Clone(ctx => ctx.Resize(scaledWidth, scaledHeight));
+        result.Mutate(ctx => ctx.DrawImage(scaled, new Point(offsetX, 0), 1f));
 
         return result;
     }
 
     private static void SplitIntoParts(
-        SKBitmap full,
-        out SKBitmap part1,
-        out SKBitmap part2,
-        out SKBitmap part3,
-        out SKBitmap part4)
+        Image<Rgba32> full,
+        out Image<Rgba32>? part1,
+        out Image<Rgba32>? part2,
+        out Image<Rgba32>? part3,
+        out Image<Rgba32>? part4)
     {
         part1 = ExtractPart(full, 0, 0);
         part2 = ExtractPart(full, 1, 0);
@@ -111,17 +77,9 @@ static class CoverProcessor
         part4 = ExtractPart(full, 1, 1);
     }
 
-    private static SKBitmap ExtractPart(SKBitmap source, int col, int row)
+    private static Image<Rgba32> ExtractPart(Image<Rgba32> source, int col, int row)
     {
-        var result = new SKBitmap(PartSize, PartSize, SKColorType.Rgba8888, SKAlphaType.Premul);
-
-        using var canvas = new SKCanvas(result);
-        using var paint = new SKPaint { IsAntialias = true, FilterQuality = SKFilterQuality.Medium };
-
-        var srcRect = new SKRect(col * PartSize, row * PartSize, (col + 1) * PartSize, (row + 1) * PartSize);
-        var dstRect = new SKRect(0, 0, PartSize, PartSize);
-        canvas.DrawBitmap(source, srcRect, dstRect, paint);
-
-        return result;
+        var rect = new Rectangle(col * PartSize, row * PartSize, PartSize, PartSize);
+        return source.Clone(ctx => ctx.Crop(rect));
     }
 }

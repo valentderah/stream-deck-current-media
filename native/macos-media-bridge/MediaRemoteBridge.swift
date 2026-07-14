@@ -1,41 +1,70 @@
 import Foundation
 import AppKit
 
+enum MRKeys {
+    static let nowPlayingInfoDidChange = "kMRMediaRemoteNowPlayingInfoDidChangeNotification"
+    static let playbackStateDidChange = "kMRMediaRemotePlaybackStateDidChangeNotification"
+    static let title = "kMRMediaRemoteNowPlayingInfoTitle"
+    static let artist = "kMRMediaRemoteNowPlayingInfoArtist"
+    static let album = "kMRMediaRemoteNowPlayingInfoAlbum"
+    static let artworkData = "kMRMediaRemoteNowPlayingInfoArtworkData"
+    static let elapsedTime = "kMRMediaRemoteNowPlayingInfoElapsedTime"
+    static let duration = "kMRMediaRemoteNowPlayingInfoDuration"
+    static let bundleId = "kMRMediaRemoteNowPlayingApplicationBundleIdentifier"
+    static let playbackRate = "kMRMediaRemoteNowPlayingInfoPlaybackRate"
+    static let playbackPosition = "kMRMediaRemoteOptionPlaybackPosition"
+}
+
 final class MediaRemoteBridge {
     static let shared = MediaRemoteBridge()
 
+    private let client = MediaRemoteClient.shared
     private var lastElapsedTime: Double = 0
     private var lastArtworkData: Data?
     private var lastCoverBase64: String = ""
 
     func start() {
-        let queue = DispatchQueue.main
-        MRMediaRemoteRegisterForNowPlayingNotifications(queue)
+        guard client.isAvailable else {
+            fputs("ERROR:MediaRemote framework unavailable\n", stderr)
+            return
+        }
+
+        client.registerForNotifications(on: .main)
 
         let center = DistributedNotificationCenter.default()
-        center.addObserver(forName: NSNotification.Name(
-            kMRMediaRemoteNowPlayingInfoDidChangeNotification as String), object: nil, queue: .main) { _ in
-            self.emitCurrentState()
-        }
-        center.addObserver(forName: NSNotification.Name(
-            kMRMediaRemotePlaybackStateDidChangeNotification as String), object: nil, queue: .main) { _ in
-            self.emitCurrentState()
-        }
+        center.addObserver(
+            forName: NSNotification.Name(MRKeys.nowPlayingInfoDidChange),
+            object: nil, queue: .main
+        ) { _ in self.emitCurrentState() }
+        center.addObserver(
+            forName: NSNotification.Name(MRKeys.playbackStateDidChange),
+            object: nil, queue: .main
+        ) { _ in self.emitCurrentState() }
     }
 
     func emitCurrentState() {
-        let state = buildState()
-        JsonSerializer.emit(state)
+        client.fetchNowPlayingInfo { [weak self] info in
+            guard let self else { return }
+            let state = self.buildState(from: info)
+            JsonSerializer.emit(state)
+        }
     }
 
-    func getElapsedTime() -> Double {
-        guard let info = MRMediaRemoteGetNowPlayingInfo(DispatchQueue.main) as? [String: Any] else {
-            return lastElapsedTime
-        }
-        if let elapsed = info[kMRMediaRemoteNowPlayingInfoElapsedTime as String] as? Double {
+    func getElapsedTime(completion: @escaping (Double) -> Void) {
+        if let info = client.cachedNowPlayingInfo(),
+           let elapsed = info[MRKeys.elapsedTime] as? Double {
             lastElapsedTime = elapsed
+            completion(elapsed)
+            return
         }
-        return lastElapsedTime
+
+        client.fetchNowPlayingInfo { [weak self] info in
+            guard let self else { return }
+            if let elapsed = info?[MRKeys.elapsedTime] as? Double {
+                self.lastElapsedTime = elapsed
+            }
+            completion(self.lastElapsedTime)
+        }
     }
 
     func handleCommand(_ line: String) {
@@ -44,11 +73,11 @@ final class MediaRemoteBridge {
 
         switch cmd {
         case "play_pause":
-            sendCommand(kMRMediaRemoteCommandTogglePlayPause, options: nil)
+            client.send(Int32(kMRMediaRemoteCommandTogglePlayPause))
         case "next":
-            sendCommand(kMRMediaRemoteCommandNextTrack, options: nil)
+            client.send(Int32(kMRMediaRemoteCommandNextTrack))
         case "previous":
-            sendCommand(kMRMediaRemoteCommandPreviousTrack, options: nil)
+            client.send(Int32(kMRMediaRemoteCommandPreviousTrack))
         case "seek_forward":
             seek(by: 10.0)
         case "seek_backward":
@@ -59,27 +88,26 @@ final class MediaRemoteBridge {
     }
 
     private func seek(by offset: Double) {
-        let newPos = max(0, getElapsedTime() + offset)
-        let options = [kMRMediaRemoteOptionPlaybackPosition as String: newPos] as CFDictionary
-        sendCommand(kMRMediaRemoteCommandChangePlaybackPosition, options: options)
+        getElapsedTime { [weak self] elapsed in
+            guard let self else { return }
+            let newPos = max(0, elapsed + offset)
+            let options = [MRKeys.playbackPosition: newPos] as CFDictionary
+            self.client.send(Int32(kMRMediaRemoteCommandChangePlaybackPosition), options: options)
+        }
     }
 
-    private func sendCommand(_ command: Int, options: CFDictionary?) {
-        MRMediaRemoteSendCommand(command, options)
-    }
-
-    private func buildState() -> BridgeState {
-        guard let info = MRMediaRemoteGetNowPlayingInfo(DispatchQueue.main) as? [String: Any] else {
+    private func buildState(from info: [String: Any]?) -> BridgeState {
+        guard let info else {
             return BridgeState.inactive()
         }
 
-        let title = info[kMRMediaRemoteNowPlayingInfoTitle as String] as? String ?? ""
-        let artist = info[kMRMediaRemoteNowPlayingInfoArtist as String] as? String ?? ""
-        let album = info[kMRMediaRemoteNowPlayingInfoAlbum as String] as? String ?? ""
-        let bundleId = info[kMRMediaRemoteNowPlayingApplicationBundleIdentifier as String] as? String ?? ""
-        let elapsed = info[kMRMediaRemoteNowPlayingInfoElapsedTime as String] as? Double ?? 0
-        let duration = info[kMRMediaRemoteNowPlayingInfoDuration as String] as? Double ?? 0
-        let rate = info[kMRMediaRemoteNowPlayingInfoPlaybackRate as String] as? Double ?? 0
+        let title = info[MRKeys.title] as? String ?? ""
+        let artist = info[MRKeys.artist] as? String ?? ""
+        let album = info[MRKeys.album] as? String ?? ""
+        let bundleId = info[MRKeys.bundleId] as? String ?? ""
+        let elapsed = info[MRKeys.elapsedTime] as? Double ?? 0
+        let duration = info[MRKeys.duration] as? Double ?? 0
+        let rate = info[MRKeys.playbackRate] as? Double ?? 0
 
         let hasTrackData = !title.isEmpty || !artist.isEmpty
         let isRunning = bundleId.isEmpty ? false :
@@ -92,7 +120,7 @@ final class MediaRemoteBridge {
         else { playbackState = "stopped" }
 
         var coverBase64 = ""
-        if let artworkData = info[kMRMediaRemoteNowPlayingInfoArtworkData as String] as? Data {
+        if let artworkData = info[MRKeys.artworkData] as? Data, !artworkData.isEmpty {
             if artworkData != lastArtworkData {
                 lastCoverBase64 = JsonSerializer.encodeCoverJpeg(artworkData)
                 lastArtworkData = artworkData

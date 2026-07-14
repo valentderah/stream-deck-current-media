@@ -1,22 +1,23 @@
-using SkiaSharp;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace CurrentMedia.Imaging;
 
 sealed class ProcessedBitmaps : IDisposable
 {
-    public SKBitmap? SquareFull { get; set; }
-    public SKBitmap? SquarePart1 { get; set; }
-    public SKBitmap? SquarePart2 { get; set; }
-    public SKBitmap? SquarePart3 { get; set; }
-    public SKBitmap? SquarePart4 { get; set; }
-    public SKBitmap? FitFull { get; set; }
-    public SKBitmap? FitPart1 { get; set; }
-    public SKBitmap? FitPart2 { get; set; }
-    public SKBitmap? FitPart3 { get; set; }
-    public SKBitmap? FitPart4 { get; set; }
-    public SKBitmap? Icon { get; set; }
+    public Image<Rgba32>? SquareFull { get; set; }
+    public Image<Rgba32>? SquarePart1 { get; set; }
+    public Image<Rgba32>? SquarePart2 { get; set; }
+    public Image<Rgba32>? SquarePart3 { get; set; }
+    public Image<Rgba32>? SquarePart4 { get; set; }
+    public Image<Rgba32>? FitFull { get; set; }
+    public Image<Rgba32>? FitPart1 { get; set; }
+    public Image<Rgba32>? FitPart2 { get; set; }
+    public Image<Rgba32>? FitPart3 { get; set; }
+    public Image<Rgba32>? FitPart4 { get; set; }
+    public Image<Rgba32>? Icon { get; set; }
 
-    public SKBitmap? Get(ImagePosition position, CropMode cropMode)
+    public Image<Rgba32>? Get(ImagePosition position, CropMode cropMode)
     {
         var useFit = cropMode == CropMode.Fit;
         return position switch

@@ -186,8 +186,8 @@ public class NowPlayingAction : KeypadBase
 
             if (!state.IsActive || !state.HasMediaData)
             {
-                using var transparent = SkiaImageExtensions.CreateTransparent(imageSize);
-                await Connection.SetImageAsync(SkiaImageExtensions.ToPngDataUri(transparent));
+                using var transparent = ImageExtensions.CreateTransparent(imageSize);
+                await Connection.SetImageAsync(ImageExtensions.ToPngDataUri(transparent));
                 return;
             }
 
