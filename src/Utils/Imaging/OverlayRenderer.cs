@@ -81,7 +81,7 @@ static class OverlayRenderer
         return new EllipsePolygon(
             rect.X + rect.Width / 2f,
             rect.Y + rect.Height / 2f,
-            rect.Width / 2f,
-            rect.Height / 2f);
+            rect.Width,
+            rect.Height);
     }
 }
