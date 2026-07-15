@@ -2,7 +2,7 @@
 
 # 当前媒体（Now Playing）
 
-<img alt="image" src="ru.valentderah.current-media.sdPlugin/imgs/banner.png" />
+<img alt="image" src=".github/assets/banner.png" />
 
 一款 Stream Deck 插件，用于显示来自各种来源的当前播放媒体信息，并提供高级播放控制功能。
 
@@ -13,12 +13,15 @@
 - **播放控制**：提供播放/暂停、下一首和上一首曲目的专用操作。
 - **快进/快退功能**：支持快进和快退操作。
 - **完全可自定义**：可配置按键触发动作，包括是否显示媒体来源、标题或艺人等信息。
-- **广泛兼容性**：支持任何集成 System Media Transport Controls (SMTC) 的应用程序（例如 Spotify、Chrome、Yandex Music）。
+- **跨平台支持**：支持 Windows 和 macOS。
+- **广泛兼容性**：支持 Spotify、Chrome、Yandex Music、Apple Music 等集成 Windows (SMTC) 和 macOS 系统媒体控制的应用程序。
 
 ## 系统要求
 
 - **Elgato Stream Deck 软件**：6.9 版或更高版本
-- **操作系统**：Windows 10 或更高版本
+- **操作系统**：
+  - Windows 10 或更高版本
+  - macOS 10.15 或更高版本
 
 ## 手动安装
 

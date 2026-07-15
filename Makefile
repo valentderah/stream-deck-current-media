@@ -1,24 +1,34 @@
-.PHONY: build-windows pack zip prod
+PLUGIN_NAME = ru.valentderah.current-media.sdPlugin
+DIST_DIR = dist/$(PLUGIN_NAME)
 
-create-dist-dir:
-	@if not exist dist mkdir dist
+.PHONY: build static build-static build-windows build-macos pack prod prod-windows
 
-build-windows:
-	@echo "Building for Windows..."
-	cd MediaManager/platforms/windows && dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -p:DebugSymbols=false
-	@echo "Copying executable..."
-	xcopy /Y MediaManager\\platforms\\windows\\bin\\Release\\net8.0-windows10.0.17763.0\\win-x64\\publish\\CurrentMedia.exe ru.valentderah.current-media.sdPlugin\\
+static:
+ifeq ($(OS),Windows_NT)
+	scripts\sync-static.bat 
+else
+	bash scripts/sync-static.sh
+endif
 
-pack: create-dist-dir
-	@echo "Packing plugin with Stream Deck CLI..."
-	streamdeck pack ru.valentderah.current-media.sdPlugin -o dist --force
+pack:
+	@echo "==> Packaging plugin..."
+	streamdeck pack "$(DIST_DIR)" -o dist --force
 
-zip: create-dist-dir
-	@echo "Zipping plugin directory..."
-	@powershell -Command "Compress-Archive -Path ./ru.valentderah.current-media.sdPlugin/* -DestinationPath dist/current-media.sdPlugin.zip -Force"
-	@echo "Plugin zipped into dist/current-media.sdPlugin.zip"
+build-windows: static
+ifeq ($(OS),Windows_NT)
+	scripts\build-windows.bat
+else
+	bash scripts/build-windows.sh
+endif
 
-prod: build-windows zip pack
-	@echo "Production build complete!"
+build-macos: static
+	bash scripts/build-macos.sh
 
-build: prod
+build:
+ifeq ($(OS),Windows_NT)
+	$(MAKE) build-windows
+else
+	$(MAKE) build-macos build-windows
+endif
+
+prod: build pack

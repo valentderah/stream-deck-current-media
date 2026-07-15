@@ -1,0 +1,119 @@
+{
+	"Name": "Current Media (Now Playing)",
+	"Version": "2.0.0.0",
+	"Author": "Valiantsin Dzerakh",
+	"Actions": [
+		{
+			"Name": "Now Playing",
+			"UUID": "ru.valentderah.current-media.media-info",
+			"Icon": "imgs/actions/media/info",
+			"Tooltip": "Displays currently playing media.",
+			"PropertyInspectorPath": "ui/media-info.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/media/info",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Next Media",
+			"UUID": "ru.valentderah.current-media.media-next",
+			"Icon": "imgs/actions/media/next",
+			"Tooltip": "Skip to next track.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/media/key/next",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Previous Media",
+			"UUID": "ru.valentderah.current-media.media-previous",
+			"Icon": "imgs/actions/media/prev",
+			"Tooltip": "Skip to previous track.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/media/key/prev",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Play/Pause",
+			"UUID": "ru.valentderah.current-media.media-play-pause",
+			"Icon": "imgs/actions/media/play-pause",
+			"Tooltip": "Toggle play/pause.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/media/key/play-pause",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Seek Forward",
+			"UUID": "ru.valentderah.current-media.media-forward",
+			"Icon": "imgs/actions/media/forward",
+			"Tooltip": "Seek forward 10 seconds.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/media/key/forward",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Seek Backward",
+			"UUID": "ru.valentderah.current-media.media-backward",
+			"Icon": "imgs/actions/media/backward",
+			"Tooltip": "Seek backward 10 seconds.",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/media/key/backward",
+					"TitleAlignment": "bottom"
+				}
+			]
+		}
+	],
+	"Category": "Current Media (Now Playing)",
+	"CategoryIcon": "imgs/plugin/category-icon",
+	"CodePath": "win/StreamDeckCurrentMedia.exe",
+	"CodePathMac": "mac/entry.sh",
+	"Description": "This plugin displays cover for the active media player (Chrome, YouTube, Spotify, Yandex Music, etc.) and allows you to control playback directly from Stream Deck.",
+	"Icon": "imgs/plugin/marketplace",
+	"SDKVersion": 3,
+	"Software": {
+		"MinimumVersion": "6.9"
+	},
+	"OS": [
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		},
+		{
+			"Platform": "mac",
+			"MinimumVersion": "10.15"
+		}
+	],
+	"UUID": "ru.valentderah.current-media"
+}

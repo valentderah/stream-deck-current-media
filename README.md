@@ -2,7 +2,7 @@ English | [Русский](README.ru.md) | [中文](README.zh-CN.md)
 
 # Current Media (Now Playing)
 
-<img alt="image" src="ru.valentderah.current-media.sdPlugin/imgs/banner.png" />
+<img alt="image" src=".github/assets/banner.png" />
 
 A Stream Deck plugin that displays information about the currently playing media from various sources and provides advanced playback controls.
 
@@ -13,12 +13,15 @@ A Stream Deck plugin that displays information about the currently playing media
 - **Playback Controls**: Dedicated actions for Play/Pause, Next, and Previous track.
 - **Seek Functionality**: Actions for seeking forward/backward.
 - **Fully Customizable**: Configure what happens on key press, whether to display the media source, title, or artist, etc.
-- **Wide Compatibility**: Works with any application that integrates with the System Media Transport Controls (SMTC) (e.g., Spotify, Chrome, Yandex Music).
+- **Cross-Platform**: Available on Windows and macOS.
+- **Wide Compatibility**: Works with Spotify, Chrome, Yandex Music, Apple Music, and other apps that integrate with system media controls on Windows (SMTC) and macOS.
 
 ## Requirements
 
 - **Elgato Stream Deck Software**: Version 6.9 or higher
-- **Operating System**: Windows 10 or higher
+- **Operating System**:
+  - Windows 10 or higher
+  - macOS 10.15 or higher
 
 ## Manual Installation
 
