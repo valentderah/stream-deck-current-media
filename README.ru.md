@@ -2,7 +2,7 @@
 
 # Current Media (Now Playing)
 
-<img alt="image" src="assets/imgs/banner.png" />
+<img alt="image" src=".github/assets/banner.png" />
 
 Плагин для Stream Deck, который отображает информацию о текущем воспроизводимом медиа из различных приложений и предоставляет расширенные элементы управления воспроизведением.
 

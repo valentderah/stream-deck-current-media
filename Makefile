@@ -1,20 +1,24 @@
 PLUGIN_NAME = ru.valentderah.current-media.sdPlugin
-ASSETS_DIR = assets
 DIST_DIR = dist/$(PLUGIN_NAME)
 
-ifeq ($(OS),Windows_NT)
-DIST_WIN = dist/$(PLUGIN_NAME)
+.PHONY: build static build-static build-windows build-macos pack prod prod-windows
 
-SYNC_CMD = cmd /c "if not exist $(DIST_WIN) mkdir $(DIST_WIN) & robocopy $(ASSETS_DIR) $(DIST_WIN) /MIR /XD win mac /NFL /NDL /NJH /NJS & if %%ERRORLEVEL%% LEQ 7 (exit /b 0) else (exit /b 1)"
-BUILD_CMD = scripts\build-windows.bat
+static:
+ifeq ($(OS),Windows_NT)
+	scripts\sync-static.bat 
 else
-SYNC_CMD = mkdir -p "$(DIST_DIR)" && rsync -a --delete --exclude 'win/' --exclude 'mac/' "$(ASSETS_DIR)/" "$(DIST_DIR)/"
-BUILD_CMD = bash scripts/build-macos.sh
+	bash scripts/sync-static.sh
 endif
 
-PACK_CMD = streamdeck pack "$(DIST_DIR)" -o dist --force
+pack:
+	@echo "==> Packaging plugin..."
+	streamdeck pack "$(DIST_DIR)" -o dist --force
 
-.PHONY: build static build-static build-windows build-macos pack prod prod-windows
+build-windows: static
+	scripts\build-windows.bat
+
+build-macos: static
+	bash scripts/build-macos.sh
 
 build:
 ifeq ($(OS),Windows_NT)
@@ -22,21 +26,5 @@ ifeq ($(OS),Windows_NT)
 else
 	$(MAKE) build-macos
 endif
-
-static:
-	@echo "==> Syncing static assets..."
-	@$(SYNC_CMD)
-	@echo "    Done."
-
-
-build-windows: static
-	$(BUILD_CMD)
-
-build-macos: static
-	$(BUILD_CMD)
-
-pack:
-	@echo "==> Packaging plugin..."
-	$(PACK_CMD)
 
 prod: build pack

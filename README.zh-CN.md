@@ -2,7 +2,7 @@
 
 # 当前媒体（Now Playing）
 
-<img alt="image" src="assets/imgs/banner.png" />
+<img alt="image" src=".github/assets/banner.png" />
 
 一款 Stream Deck 插件，用于显示来自各种来源的当前播放媒体信息，并提供高级播放控制功能。
 
