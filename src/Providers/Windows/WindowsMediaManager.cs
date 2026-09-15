@@ -1,195 +1,77 @@
+using System.Collections.Concurrent;
+using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using BarRaider.SdTools;
 using CurrentMedia.Imaging;
+using Windows.Foundation;
 using Windows.Media.Control;
 using Windows.Storage.Streams;
+using SmtcManager = Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager;
+using SmtcMediaProperties = Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties;
+using SmtcPlaybackInfo = Windows.Media.Control.GlobalSystemMediaTransportControlsSessionPlaybackInfo;
+using SmtcPlaybackStatus = Windows.Media.Control.GlobalSystemMediaTransportControlsSessionPlaybackStatus;
+using SmtcSession = Windows.Media.Control.GlobalSystemMediaTransportControlsSession;
+using SmtcTimeline = Windows.Media.Control.GlobalSystemMediaTransportControlsSessionTimelineProperties;
+using WinRtBuffer = Windows.Storage.Streams.Buffer;
 
 namespace CurrentMedia.Windows;
 
 public sealed class WindowsMediaManager : IMediaManager
 {
-    private readonly SemaphoreSlim _updateSemaphore = new(1, 1);
+    private const int MaxThumbnailAttempts = 3;
+    private const int MaxConsecutiveCallFailures = 3;
+    private const long PropertiesTtlMs = 5_000;
+    private const uint MaxThumbnailBytes = 12 * 1024 * 1024;
+    private const char SignatureSeparator = '\u001f';
+
+    private readonly RefreshLoop _loop;
     private readonly CancellationTokenSource _shutdownCts = new();
-    private GlobalSystemMediaTransportControlsSessionManager? _sessionManager;
-    private readonly Dictionary<string, GlobalSystemMediaTransportControlsSession> _subscribedSessions = new();
-    private GlobalSystemMediaTransportControlsSession? _lastActiveSession;
-    private Timer? _updateDebounceTimer;
-    private readonly object _debounceLock = new();
-    private bool _isInitialized;
-    private bool _disposed;
+    private readonly Dictionary<SmtcSession, SessionEntry> _entries = new(ReferenceEqualityComparer.Instance);
+    private readonly List<SessionEntry> _ordered = new();
+    private readonly ConcurrentDictionary<SmtcSession, byte> _propertyChanges = new(ReferenceEqualityComparer.Instance);
+
+    private volatile SmtcManager? _manager;
+    private volatile TaskCompletionSource _managerReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private volatile string? _lastPlayingSessionId;
+    private int _forcePublish;
+    private int _managerLost;
+    private int _acquireFailures;
+    private int _consecutiveCallFailures;
+    private long _nextAcquireTicks;
+    private string _publishedSignature = "";
+    private volatile bool _disposed;
 
     public event EventHandler<MediaState>? MediaStateChanged;
 
-    public async Task InitializeAsync()
+    public WindowsMediaManager()
     {
-        if (_disposed || _isInitialized)
-        {
-            return;
-        }
-
-        try
-        {
-            var request = GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask();
-            var wait = await AsyncWait.For(request, MediaClientTimeouts.SessionManagerRequest, _shutdownCts.Token)
-                .ConfigureAwait(false);
-            if (_disposed)
-            {
-                return;
-            }
-
-            switch (wait.Kind)
-            {
-                case WaitResultKind.Completed:
-                    break;
-                case WaitResultKind.TimedOut:
-                    Logger.Instance.LogMessage(TracingLevel.ERROR, "SMTC RequestAsync timed out");
-                    return;
-                case WaitResultKind.Canceled:
-                    return;
-                default:
-                {
-                    WaitResultKind unexpected = wait.Kind;
-                    throw new InvalidOperationException($"Unknown wait kind: {unexpected}");
-                }
-            }
-
-            if (wait.Value is null)
-            {
-                return;
-            }
-
-            if (_disposed)
-            {
-                return;
-            }
-
-            _sessionManager = wait.Value;
-            _sessionManager.CurrentSessionChanged += HandleCurrentSessionChanged;
-            _sessionManager.SessionsChanged += HandleSessionsChanged;
-            SubscribeToAllSessions(_sessionManager);
-            if (_disposed)
-            {
-                TearDownSubscriptions();
-                return;
-            }
-
-            _isInitialized = true;
-            await UpdateAndNotifyAsync();
-        }
-        catch (Exception ex)
-        {
-            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Failed to initialize WindowsMediaManager: {ex.Message}");
-        }
+        _loop = new RefreshLoop(
+            RefreshAsync,
+            new RefreshLoopOptions(),
+            ex => Logger.Instance.LogMessage(TracingLevel.ERROR, $"Media refresh pass failed: {ex.Message}"));
     }
 
-    private async Task<T?> AwaitSessionOpAsync<T>(Task<T> task, string operation)
+    public Task InitializeAsync()
     {
-        var wait = await AsyncWait.For(task, MediaClientTimeouts.SessionOperation, _shutdownCts.Token)
-            .ConfigureAwait(false);
-        switch (wait.Kind)
-        {
-            case WaitResultKind.Completed:
-                return _disposed ? default : wait.Value;
-            case WaitResultKind.TimedOut:
-                Logger.Instance.LogMessage(TracingLevel.WARN, $"{operation} timed out");
-                return default;
-            case WaitResultKind.Canceled:
-                return default;
-            default:
-            {
-                WaitResultKind unexpected = wait.Kind;
-                throw new InvalidOperationException($"Unknown wait kind: {unexpected}");
-            }
-        }
+        ScheduleUpdate(force: true);
+        return Task.CompletedTask;
     }
 
-    private void HandleCurrentSessionChanged(
-        GlobalSystemMediaTransportControlsSessionManager sender,
-        CurrentSessionChangedEventArgs args)
+    public Task RequestUpdateAsync()
     {
-        OnSessionChanged();
+        ScheduleUpdate(force: true);
+        return Task.CompletedTask;
     }
 
-    private void HandleSessionsChanged(
-        GlobalSystemMediaTransportControlsSessionManager sender,
-        SessionsChangedEventArgs args)
-    {
-        OnSessionsChanged();
-    }
+    public Task PlayPauseAsync() =>
+        RunCommandAsync(session => session.TryTogglePlayPauseAsync(), "TryTogglePlayPauseAsync");
 
-    public async Task RequestUpdateAsync()
-    {
-        await UpdateAndNotifyAsync();
-    }
+    public Task NextAsync() =>
+        RunCommandAsync(session => session.TrySkipNextAsync(), "TrySkipNextAsync");
 
-    public async Task PlayPauseAsync()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        try
-        {
-            var activeSession = await GetActiveSessionAsync();
-            if (activeSession == null)
-            {
-                return;
-            }
-
-            await AwaitSessionOpAsync(activeSession.TryTogglePlayPauseAsync().AsTask(), "TryTogglePlayPauseAsync");
-        }
-        catch (Exception ex)
-        {
-            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error toggling play/pause: {ex.Message}");
-        }
-    }
-
-    public async Task NextAsync()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        try
-        {
-            var activeSession = await GetActiveSessionAsync();
-            if (activeSession == null)
-            {
-                return;
-            }
-
-            await AwaitSessionOpAsync(activeSession.TrySkipNextAsync().AsTask(), "TrySkipNextAsync");
-        }
-        catch (Exception ex)
-        {
-            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error skipping next: {ex.Message}");
-        }
-    }
-
-    public async Task PreviousAsync()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        try
-        {
-            var activeSession = await GetActiveSessionAsync();
-            if (activeSession == null)
-            {
-                return;
-            }
-
-            await AwaitSessionOpAsync(activeSession.TrySkipPreviousAsync().AsTask(), "TrySkipPreviousAsync");
-        }
-        catch (Exception ex)
-        {
-            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error skipping previous: {ex.Message}");
-        }
-    }
+    public Task PreviousAsync() =>
+        RunCommandAsync(session => session.TrySkipPreviousAsync(), "TrySkipPreviousAsync");
 
     public Task SeekByAsync(int offsetSeconds) => SeekAsync(TimeSpan.FromSeconds(offsetSeconds));
 
@@ -210,21 +92,9 @@ public sealed class WindowsMediaManager : IMediaManager
         {
         }
 
-        lock (_debounceLock)
-        {
-            _updateDebounceTimer?.Dispose();
-            _updateDebounceTimer = null;
-        }
-
-        TearDownSubscriptions();
-
-        try
-        {
-            _updateSemaphore.Dispose();
-        }
-        catch (ObjectDisposedException)
-        {
-        }
+        _loop.Dispose();
+        ReleaseManager("plugin shutdown");
+        _managerReady.TrySetResult();
 
         try
         {
@@ -235,554 +105,1034 @@ public sealed class WindowsMediaManager : IMediaManager
         }
     }
 
-    private void TearDownSubscriptions()
+    private void ScheduleUpdate(bool force)
     {
-        var manager = _sessionManager;
-        if (manager != null)
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (force)
+        {
+            Interlocked.Exchange(ref _forcePublish, 1);
+        }
+
+        _loop.Start();
+        _loop.Request();
+    }
+
+    private async Task RefreshAsync(CancellationToken token)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        var force = Interlocked.Exchange(ref _forcePublish, 0) == 1;
+
+        if (Interlocked.Exchange(ref _managerLost, 0) == 1)
+        {
+            ReleaseManager("session manager stopped responding");
+        }
+
+        var manager = await EnsureManagerAsync(token).ConfigureAwait(false);
+        if (_disposed || manager == null || !SyncSessions(manager))
+        {
+            if (!_disposed)
+            {
+                Publish(InactiveState(), force);
+            }
+
+            return;
+        }
+
+        ApplyPropertyChanges();
+
+        var entry = PickSession(manager);
+        var state = entry == null
+            ? InactiveState()
+            : await BuildStateAsync(entry, token).ConfigureAwait(false);
+
+        if (!_disposed)
+        {
+            Publish(state, force);
+        }
+    }
+
+    private async Task<SmtcManager?> EnsureManagerAsync(CancellationToken token)
+    {
+        var existing = _manager;
+        if (existing != null)
+        {
+            return existing;
+        }
+
+        if (Environment.TickCount64 < Interlocked.Read(ref _nextAcquireTicks))
+        {
+            return null;
+        }
+
+        var manager = await InvokeAsync(
+                SmtcManager.RequestAsync,
+                MediaClientTimeouts.SessionManagerRequest,
+                "SMTC RequestAsync",
+                token,
+                countsTowardManagerHealth: false)
+            .ConfigureAwait(false);
+
+        if (manager == null || _disposed)
+        {
+            if (manager == null)
+            {
+                ScheduleAcquireRetry();
+            }
+
+            return null;
+        }
+
+        try
+        {
+            manager.CurrentSessionChanged += HandleCurrentSessionChanged;
+            manager.SessionsChanged += HandleSessionsChanged;
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Failed to subscribe to session manager: {ex.Message}");
+            ScheduleAcquireRetry();
+            return null;
+        }
+
+        if (_disposed)
         {
             try
             {
                 manager.CurrentSessionChanged -= HandleCurrentSessionChanged;
-            }
-            catch (Exception ex)
-            {
-                Logger.Instance.LogMessage(TracingLevel.WARN, $"Error unsubscribing CurrentSessionChanged: {ex.Message}");
-            }
-
-            try
-            {
                 manager.SessionsChanged -= HandleSessionsChanged;
             }
             catch (Exception ex)
             {
-                Logger.Instance.LogMessage(TracingLevel.WARN, $"Error unsubscribing SessionsChanged: {ex.Message}");
+                Logger.Instance.LogMessage(TracingLevel.WARN, $"Failed to detach manager events: {ex.Message}");
             }
+
+            return null;
         }
 
-        foreach (var session in _subscribedSessions.Values)
+        _manager = manager;
+        Interlocked.Exchange(ref _acquireFailures, 0);
+        Interlocked.Exchange(ref _consecutiveCallFailures, 0);
+        _managerReady.TrySetResult();
+        Logger.Instance.LogMessage(TracingLevel.INFO, "SMTC session manager acquired");
+        return manager;
+    }
+
+    private void ScheduleAcquireRetry()
+    {
+        var failures = Interlocked.Increment(ref _acquireFailures);
+        var seconds = Math.Min(30d, Math.Pow(2, Math.Min(failures - 1, 5)));
+        Interlocked.Exchange(ref _nextAcquireTicks, Environment.TickCount64 + (long)(seconds * 1000));
+        Logger.Instance.LogMessage(
+            TracingLevel.WARN,
+            $"SMTC session manager unavailable, next attempt in {seconds:F0}s");
+    }
+
+    private void ReleaseManager(string reason)
+    {
+        var manager = _manager;
+        _manager = null;
+        _managerReady = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Interlocked.Exchange(ref _consecutiveCallFailures, 0);
+
+        if (manager != null)
         {
+            Logger.Instance.LogMessage(TracingLevel.WARN, $"Releasing SMTC session manager: {reason}");
+
             try
             {
-                session.MediaPropertiesChanged -= OnMediaPropertiesChanged;
-                session.PlaybackInfoChanged -= OnPlaybackInfoChanged;
+                manager.CurrentSessionChanged -= HandleCurrentSessionChanged;
+                manager.SessionsChanged -= HandleSessionsChanged;
             }
             catch (Exception ex)
             {
-                Logger.Instance.LogMessage(TracingLevel.WARN, $"Error unsubscribing session: {ex.Message}");
+                Logger.Instance.LogMessage(TracingLevel.WARN, $"Failed to detach manager events: {ex.Message}");
             }
         }
 
-        _subscribedSessions.Clear();
-        _sessionManager = null;
-    }
-
-    private void OnSessionsChanged()
-    {
-        if (_disposed)
+        foreach (var entry in _entries.Values)
         {
-            return;
+            Detach(entry);
         }
 
-        if (_sessionManager != null)
-        {
-            SubscribeToAllSessions(_sessionManager);
-        }
+        _entries.Clear();
+        _ordered.Clear();
+        _propertyChanges.Clear();
     }
 
-    private void SubscribeToAllSessions(GlobalSystemMediaTransportControlsSessionManager manager)
+    private bool SyncSessions(SmtcManager manager)
     {
+        IReadOnlyList<SmtcSession> sessions;
         try
         {
-            var allSessions = manager.GetSessions();
-            var currentSessionIds = new HashSet<string>();
-
-            foreach (var session in allSessions)
-            {
-                try
-                {
-                    var sessionId = session.SourceAppUserModelId;
-                    currentSessionIds.Add(sessionId);
-
-                    if (_subscribedSessions.TryGetValue(sessionId, out var oldSession))
-                    {
-                        oldSession.MediaPropertiesChanged -= OnMediaPropertiesChanged;
-                        oldSession.PlaybackInfoChanged -= OnPlaybackInfoChanged;
-                    }
-
-                    session.MediaPropertiesChanged += OnMediaPropertiesChanged;
-                    session.PlaybackInfoChanged += OnPlaybackInfoChanged;
-                    _subscribedSessions[sessionId] = session;
-                }
-                catch (Exception ex)
-                {
-                    Logger.Instance.LogMessage(TracingLevel.WARN, $"Failed to subscribe to session: {ex.Message}");
-                }
-            }
-
-            var removedIds = _subscribedSessions.Keys.Where(id => !currentSessionIds.Contains(id)).ToList();
-            foreach (var id in removedIds)
-            {
-                if (_subscribedSessions.TryGetValue(id, out var oldSession))
-                {
-                    oldSession.MediaPropertiesChanged -= OnMediaPropertiesChanged;
-                    oldSession.PlaybackInfoChanged -= OnPlaybackInfoChanged;
-                }
-
-                _subscribedSessions.Remove(id);
-            }
+            sessions = manager.GetSessions();
         }
         catch (Exception ex)
         {
-            Logger.Instance.LogMessage(TracingLevel.WARN, $"Failed to subscribe to all sessions: {ex.Message}");
-        }
-    }
-
-    private void OnSessionChanged()
-    {
-        DebouncedUpdate(250);
-    }
-
-    private void OnPlaybackInfoChanged(GlobalSystemMediaTransportControlsSession session, PlaybackInfoChangedEventArgs args)
-    {
-        DebouncedUpdate(250);
-    }
-
-    private void OnMediaPropertiesChanged(GlobalSystemMediaTransportControlsSession session, MediaPropertiesChangedEventArgs args)
-    {
-        DebouncedUpdate(250);
-    }
-
-    private void DebouncedUpdate(int delayMs)
-    {
-        if (_disposed)
-        {
-            return;
+            NoteCallFailure("GetSessions", ex);
+            return false;
         }
 
-        lock (_debounceLock)
+        _ordered.Clear();
+        var live = new HashSet<SmtcSession>(ReferenceEqualityComparer.Instance);
+
+        foreach (var session in sessions)
         {
-            _updateDebounceTimer?.Dispose();
-            _updateDebounceTimer = new Timer(_ =>
+            if (session == null || !live.Add(session))
             {
-                _ = UpdateAndNotifyAsync();
-            }, null, delayMs, Timeout.Infinite);
+                continue;
+            }
+
+            if (!_entries.TryGetValue(session, out var entry))
+            {
+                entry = Attach(session);
+                if (entry == null)
+                {
+                    continue;
+                }
+
+                _entries[session] = entry;
+            }
+
+            _ordered.Add(entry);
+        }
+
+        if (_entries.Count == _ordered.Count)
+        {
+            return true;
+        }
+
+        foreach (var session in _entries.Keys.Where(session => !live.Contains(session)).ToList())
+        {
+            if (_entries.Remove(session, out var stale))
+            {
+                Detach(stale);
+            }
+
+            _propertyChanges.TryRemove(session, out _);
+        }
+
+        return true;
+    }
+
+    private SessionEntry? Attach(SmtcSession session)
+    {
+        var entry = new SessionEntry(session, ReadSourceId(session), ReadSourceAppInfo(session));
+
+        try
+        {
+            session.MediaPropertiesChanged += OnMediaPropertiesChanged;
+            session.PlaybackInfoChanged += OnPlaybackInfoChanged;
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.WARN, $"Failed to attach session {entry.Id}: {ex.Message}");
+            Detach(entry);
+            return null;
+        }
+
+        return entry;
+    }
+
+    private void Detach(SessionEntry entry)
+    {
+        try
+        {
+            entry.Session.MediaPropertiesChanged -= OnMediaPropertiesChanged;
+            entry.Session.PlaybackInfoChanged -= OnPlaybackInfoChanged;
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.WARN, $"Failed to detach session {entry.Id}: {ex.Message}");
         }
     }
 
-    private async Task UpdateAndNotifyAsync()
+    private void ApplyPropertyChanges()
+    {
+        foreach (var session in _propertyChanges.Keys)
+        {
+            if (!_propertyChanges.TryRemove(session, out _))
+            {
+                continue;
+            }
+
+            if (_entries.TryGetValue(session, out var entry))
+            {
+                entry.PropertiesStale = true;
+            }
+        }
+    }
+
+    private void HandleCurrentSessionChanged(SmtcManager sender, CurrentSessionChangedEventArgs args)
+    {
+        _loop.Request();
+    }
+
+    private void HandleSessionsChanged(SmtcManager sender, SessionsChangedEventArgs args)
+    {
+        _loop.Request();
+    }
+
+    private void OnMediaPropertiesChanged(SmtcSession session, MediaPropertiesChangedEventArgs args)
+    {
+        _propertyChanges[session] = 0;
+        _loop.Request();
+    }
+
+    private void OnPlaybackInfoChanged(SmtcSession session, PlaybackInfoChangedEventArgs args)
+    {
+        _loop.Request();
+    }
+
+    private SessionEntry? PickSession(SmtcManager manager)
+    {
+        if (_ordered.Count == 0)
+        {
+            return null;
+        }
+
+        var currentId = ReadCurrentSessionId(manager);
+        var lastPlayingId = _lastPlayingSessionId;
+        var pausedCurrent = -1;
+        var pausedLastPlaying = -1;
+        var anyPaused = -1;
+
+        for (var i = 0; i < _ordered.Count; i++)
+        {
+            var entry = _ordered[i];
+            entry.Playback = ReadPlaybackInfo(entry);
+
+            switch (entry.Playback?.PlaybackStatus)
+            {
+                case SmtcPlaybackStatus.Playing:
+                    return entry;
+                case SmtcPlaybackStatus.Paused:
+                    if (pausedCurrent < 0 && currentId != null && entry.Id == currentId)
+                    {
+                        pausedCurrent = i;
+                    }
+
+                    if (pausedLastPlaying < 0 && lastPlayingId != null && entry.Id == lastPlayingId)
+                    {
+                        pausedLastPlaying = i;
+                    }
+
+                    if (anyPaused < 0)
+                    {
+                        anyPaused = i;
+                    }
+
+                    break;
+            }
+        }
+
+        if (pausedCurrent >= 0)
+        {
+            return _ordered[pausedCurrent];
+        }
+
+        if (pausedLastPlaying >= 0)
+        {
+            return _ordered[pausedLastPlaying];
+        }
+
+        return anyPaused >= 0 ? _ordered[anyPaused] : _ordered[0];
+    }
+
+    private async Task<MediaState> BuildStateAsync(SessionEntry entry, CancellationToken token)
+    {
+        var playback = entry.Playback;
+        if (playback == null)
+        {
+            return InactiveState();
+        }
+
+        var track = await EnsureTrackAsync(entry, token).ConfigureAwait(false);
+        if (track == null || !track.HasText)
+        {
+            return InactiveState();
+        }
+
+        if (playback.PlaybackStatus == SmtcPlaybackStatus.Playing)
+        {
+            _lastPlayingSessionId = entry.Id;
+        }
+
+        var state = new MediaState
+        {
+            Title = track.Title,
+            Artist = track.Artist,
+            Artists = new List<string>(track.Artists),
+            AlbumArtist = track.AlbumArtist,
+            AlbumTitle = track.AlbumTitle,
+            CoverArtBase64 = track.CoverArtBase64,
+            Status = playback.PlaybackStatus switch
+            {
+                SmtcPlaybackStatus.Playing => "Playing",
+                SmtcPlaybackStatus.Paused => "Paused",
+                _ => "Stopped"
+            },
+            IsActive = true
+        };
+
+        ApplyTimeline(entry, playback.PlaybackStatus, state);
+
+        state.AppIconBase64 = await WindowsAppIconProcessor
+            .GetAppIconBase64Async(entry.Id, entry.SourceAppInfo, MediaClientTimeouts.AppIcon, token)
+            .ConfigureAwait(false);
+
+        return state;
+    }
+
+    private async Task<TrackInfo?> EnsureTrackAsync(SessionEntry entry, CancellationToken token)
+    {
+        if (!entry.NeedsProperties)
+        {
+            return entry.Track;
+        }
+
+        var properties = await InvokeAsync(
+                entry.Session.TryGetMediaPropertiesAsync,
+                MediaClientTimeouts.SessionOperation,
+                "TryGetMediaPropertiesAsync",
+                token,
+                countsTowardManagerHealth: true)
+            .ConfigureAwait(false);
+
+        if (properties == null)
+        {
+            return entry.Track;
+        }
+
+        var track = TrackInfo.TryCreate(properties);
+        if (track == null)
+        {
+            return entry.Track;
+        }
+
+        entry.MarkPropertiesRead();
+
+        var previous = entry.Track;
+        if (previous != null && previous.Identity == track.Identity)
+        {
+            track.CoverArtBase64 = previous.CoverArtBase64;
+            track.ThumbnailAttempts = previous.ThumbnailAttempts;
+        }
+
+        if (track.CoverArtBase64.Length == 0
+            && track.ThumbnailAttempts < MaxThumbnailAttempts
+            && properties.Thumbnail != null)
+        {
+            track.ThumbnailAttempts++;
+            track.CoverArtBase64 = await ReadThumbnailAsync(properties.Thumbnail, token).ConfigureAwait(false);
+
+            if (track.CoverArtBase64.Length == 0 && track.ThumbnailAttempts < MaxThumbnailAttempts)
+            {
+                // Retry on a later pass instead of sleeping inside this one.
+                entry.PropertiesStale = true;
+            }
+        }
+
+        entry.Track = track;
+        return track;
+    }
+
+    private async Task<string> ReadThumbnailAsync(IRandomAccessStreamReference thumbnail, CancellationToken token)
+    {
+        using var stream = await InvokeAsync(
+                thumbnail.OpenReadAsync,
+                MediaClientTimeouts.Thumbnail,
+                "thumbnail OpenReadAsync",
+                token,
+                countsTowardManagerHealth: false)
+            .ConfigureAwait(false);
+
+        if (stream == null || stream.Size == 0)
+        {
+            return string.Empty;
+        }
+
+        if (stream.Size > MaxThumbnailBytes)
+        {
+            Logger.Instance.LogMessage(TracingLevel.WARN, $"Skipping oversized thumbnail ({stream.Size} bytes)");
+            return string.Empty;
+        }
+
+        var size = (uint)stream.Size;
+        var buffer = new WinRtBuffer(size);
+
+        try
+        {
+            stream.Seek(0);
+        }
+        catch (Exception ex)
+        {
+            NoteCallFailure("thumbnail Seek", ex);
+            return string.Empty;
+        }
+
+        var read = await InvokeAsync(
+                () => stream.ReadAsync(buffer, size, InputStreamOptions.None),
+                MediaClientTimeouts.Thumbnail,
+                "thumbnail ReadAsync",
+                token,
+                countsTowardManagerHealth: false)
+            .ConfigureAwait(false);
+
+        return read == null ? string.Empty : Convert.ToBase64String(read.ToArray());
+    }
+
+    private void ApplyTimeline(SessionEntry entry, SmtcPlaybackStatus status, MediaState state)
+    {
+        SmtcTimeline? timeline;
+        try
+        {
+            timeline = entry.Session.GetTimelineProperties();
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.WARN, $"Failed to read timeline of {entry.Id}: {ex.Message}");
+            return;
+        }
+
+        if (timeline == null)
+        {
+            return;
+        }
+
+        state.Position = GetEffectivePlaybackPosition(timeline, status).TotalSeconds;
+
+        var duration = timeline.EndTime - timeline.StartTime;
+        if (duration > TimeSpan.Zero)
+        {
+            state.Duration = duration.TotalSeconds;
+        }
+    }
+
+    private void Publish(MediaState state, bool force)
     {
         if (_disposed)
         {
             return;
         }
 
-        try
-        {
-            await _updateSemaphore.WaitAsync(_shutdownCts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-        catch (ObjectDisposedException)
+        var signature = BuildSignature(state);
+        if (!force && signature == _publishedSignature)
         {
             return;
         }
 
+        _publishedSignature = signature;
+
         try
         {
-            if (_disposed)
+            ImagePipeline.PrepareCache(state);
+            MediaStateChanged?.Invoke(this, state);
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Failed to publish media state: {ex.Message}");
+        }
+    }
+
+    private async Task RunCommandAsync(Func<SmtcSession, IAsyncOperation<bool>> command, string name)
+    {
+        var session = await GetCommandSessionAsync().ConfigureAwait(false);
+        if (session == null)
+        {
+            return;
+        }
+
+        await InvokeAsync(
+                () => command(session),
+                MediaClientTimeouts.SessionOperation,
+                name,
+                _shutdownCts.Token,
+                countsTowardManagerHealth: true)
+            .ConfigureAwait(false);
+
+        ScheduleUpdate(force: false);
+    }
+
+    private async Task SeekAsync(TimeSpan offset)
+    {
+        var session = await GetCommandSessionAsync().ConfigureAwait(false);
+        if (session == null)
+        {
+            return;
+        }
+
+        TimeSpan target;
+        try
+        {
+            var playback = session.GetPlaybackInfo();
+            if (playback == null || !playback.Controls.IsPlaybackPositionEnabled)
             {
                 return;
             }
 
-            var mediaState = await GetCurrentMediaStateAsync();
-            ImagePipeline.PrepareCache(mediaState);
-            MediaStateChanged?.Invoke(this, mediaState);
+            var timeline = session.GetTimelineProperties();
+            if (timeline == null)
+            {
+                return;
+            }
+
+            target = GetEffectivePlaybackPosition(timeline, playback.PlaybackStatus) + offset;
+
+            if (target < timeline.StartTime)
+            {
+                target = timeline.StartTime;
+            }
+
+            if (timeline.EndTime > TimeSpan.Zero && target > timeline.EndTime)
+            {
+                target = timeline.EndTime;
+            }
         }
         catch (Exception ex)
         {
-            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error updating media state: {ex.Message}");
+            NoteCallFailure("seek", ex);
+            return;
         }
-        finally
+
+        await InvokeAsync(
+                () => session.TryChangePlaybackPositionAsync(target.Ticks),
+                MediaClientTimeouts.SessionOperation,
+                "TryChangePlaybackPositionAsync",
+                _shutdownCts.Token,
+                countsTowardManagerHealth: true)
+            .ConfigureAwait(false);
+
+        ScheduleUpdate(force: false);
+    }
+
+    private async Task<SmtcSession?> GetCommandSessionAsync()
+    {
+        var manager = await WaitForManagerAsync().ConfigureAwait(false);
+        if (manager == null)
         {
-            try
+            return null;
+        }
+
+        try
+        {
+            var sessions = manager.GetSessions();
+            if (sessions.Count == 0)
             {
-                _updateSemaphore.Release();
+                return null;
             }
-            catch (ObjectDisposedException)
+
+            var currentId = ReadCurrentSessionId(manager);
+            var lastPlayingId = _lastPlayingSessionId;
+            SmtcSession? pausedCurrent = null;
+            SmtcSession? pausedLastPlaying = null;
+            SmtcSession? anyPaused = null;
+
+            foreach (var session in sessions)
             {
+                SmtcPlaybackInfo? playback;
+                try
+                {
+                    playback = session.GetPlaybackInfo();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Instance.LogMessage(TracingLevel.WARN, $"Failed to read playback info: {ex.Message}");
+                    continue;
+                }
+
+                if (playback?.PlaybackStatus == SmtcPlaybackStatus.Playing)
+                {
+                    return session;
+                }
+
+                if (playback?.PlaybackStatus != SmtcPlaybackStatus.Paused)
+                {
+                    continue;
+                }
+
+                var id = ReadSourceId(session);
+
+                if (pausedCurrent == null && currentId != null && id == currentId)
+                {
+                    pausedCurrent = session;
+                }
+
+                if (pausedLastPlaying == null && lastPlayingId != null && id == lastPlayingId)
+                {
+                    pausedLastPlaying = session;
+                }
+
+                anyPaused ??= session;
             }
+
+            return pausedCurrent ?? pausedLastPlaying ?? anyPaused ?? sessions[0];
+        }
+        catch (Exception ex)
+        {
+            NoteCallFailure("GetSessions", ex);
+            return null;
         }
     }
 
-    private async Task<MediaState> GetCurrentMediaStateAsync()
+    private async Task<SmtcManager?> WaitForManagerAsync()
     {
+        var manager = _manager;
+        if (manager != null)
+        {
+            return manager;
+        }
+
+        ScheduleUpdate(force: false);
+
         try
         {
-            if (_sessionManager == null)
-            {
-                return InactiveState();
-            }
+            await _managerReady.Task
+                .WaitAsync(MediaClientTimeouts.ManagerReady, _shutdownCts.Token)
+                .ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            Logger.Instance.LogMessage(TracingLevel.WARN, "SMTC session manager is not ready");
+            return null;
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+        catch (ObjectDisposedException)
+        {
+            return null;
+        }
 
-            var activeSession = FindBestMediaSession(_sessionManager);
-            if (activeSession == null)
-            {
-                return InactiveState();
-            }
+        return _manager;
+    }
 
-            GlobalSystemMediaTransportControlsSessionMediaProperties? mediaProperties = null;
-            GlobalSystemMediaTransportControlsSessionPlaybackInfo? playbackInfo = null;
-
-            try
+    private Task<T?> InvokeAsync<T>(
+        Func<IAsyncOperation<T>> start,
+        TimeSpan timeout,
+        string name,
+        CancellationToken token,
+        bool countsTowardManagerHealth) =>
+        InvokeCoreAsync(
+            () =>
             {
-                mediaProperties = await AwaitSessionOpAsync(
-                    activeSession.TryGetMediaPropertiesAsync().AsTask(),
-                    "TryGetMediaPropertiesAsync");
-            }
-            catch (Exception ex)
-            {
-                Logger.Instance.LogMessage(TracingLevel.WARN, $"Error getting media properties: {ex.Message}");
-            }
+                var operation = start();
+                return (operation, operation.AsTask());
+            },
+            timeout,
+            name,
+            token,
+            countsTowardManagerHealth);
 
-            try
+    private Task<T?> InvokeAsync<T, TProgress>(
+        Func<IAsyncOperationWithProgress<T, TProgress>> start,
+        TimeSpan timeout,
+        string name,
+        CancellationToken token,
+        bool countsTowardManagerHealth) =>
+        InvokeCoreAsync(
+            () =>
             {
-                playbackInfo = activeSession.GetPlaybackInfo();
-            }
-            catch (Exception ex)
-            {
-                Logger.Instance.LogMessage(TracingLevel.WARN, $"Error getting playback info: {ex.Message}");
-            }
+                var operation = start();
+                return (operation, operation.AsTask());
+            },
+            timeout,
+            name,
+            token,
+            countsTowardManagerHealth);
 
-            if (playbackInfo == null)
-            {
-                return InactiveState();
-            }
+    private async Task<T?> InvokeCoreAsync<T>(
+        Func<(IAsyncInfo Operation, Task<T> Task)> start,
+        TimeSpan timeout,
+        string name,
+        CancellationToken token,
+        bool countsTowardManagerHealth)
+    {
+        if (_disposed)
+        {
+            return default;
+        }
 
-            var artists = new List<string>();
-            if (mediaProperties != null && !string.IsNullOrEmpty(mediaProperties.Artist))
-            {
-                try
-                {
-                    var artistParts = mediaProperties.Artist.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
-                    artists.AddRange(artistParts.Select(a => a.Trim()).Where(a => !string.IsNullOrEmpty(a)));
-                }
-                catch (Exception ex)
-                {
-                    Logger.Instance.LogMessage(TracingLevel.WARN, $"Error parsing artists: {ex.Message}");
-                }
-            }
-
-            var title = mediaProperties?.Title ?? string.Empty;
-            var artist = mediaProperties?.Artist ?? string.Empty;
-
-            var hasMediaData = !string.IsNullOrEmpty(title)
-                || !string.IsNullOrEmpty(artist)
-                || artists.Count > 0;
-
-            if (!hasMediaData)
-            {
-                return InactiveState();
-            }
-
-            var state = new MediaState
-            {
-                Title = title,
-                Artist = artist,
-                Artists = artists,
-                AlbumArtist = mediaProperties?.AlbumArtist ?? string.Empty,
-                AlbumTitle = mediaProperties?.AlbumTitle ?? string.Empty,
-                Status = playbackInfo.PlaybackStatus switch
-                {
-                    GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing => "Playing",
-                    GlobalSystemMediaTransportControlsSessionPlaybackStatus.Paused => "Paused",
-                    GlobalSystemMediaTransportControlsSessionPlaybackStatus.Stopped => "Stopped",
-                    _ => "Stopped"
-                },
-                IsActive = true
-            };
-
-            if (state.Status == "Playing")
-            {
-                _lastActiveSession = activeSession;
-            }
-
-            try
-            {
-                var timelineProperties = activeSession.GetTimelineProperties();
-                if (timelineProperties != null)
-                {
-                    state.Position = GetEffectivePlaybackPosition(timelineProperties, playbackInfo.PlaybackStatus).TotalSeconds;
-                    var duration = timelineProperties.EndTime - timelineProperties.StartTime;
-                    if (duration > TimeSpan.Zero)
-                    {
-                        state.Duration = duration.TotalSeconds;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Instance.LogMessage(TracingLevel.WARN, $"Error getting timeline properties: {ex.Message}");
-            }
-
-            if (mediaProperties?.Thumbnail != null)
-            {
-                try
-                {
-                    state.CoverArtBase64 = await GetThumbnailBase64Async(mediaProperties.Thumbnail);
-                }
-                catch (Exception ex)
-                {
-                    Logger.Instance.LogMessage(TracingLevel.WARN, $"Error reading thumbnail: {ex.Message}");
-                }
-            }
-
-            try
-            {
-                var appUserModelId = activeSession.SourceAppUserModelId;
-                if (!string.IsNullOrEmpty(appUserModelId))
-                {
-                    dynamic? sourceAppInfo = null;
-                    try
-                    {
-                        var sourceAppInfoProperty = activeSession.GetType().GetProperty("SourceAppInfo");
-                        if (sourceAppInfoProperty != null)
-                        {
-                            sourceAppInfo = sourceAppInfoProperty.GetValue(activeSession);
-                        }
-                    }
-                    catch
-                    {
-                        // Property doesn't exist or is inaccessible
-                    }
-
-                    state.AppIconBase64 = await WindowsAppIconProcessor.GetAppIconBase64Async(appUserModelId, sourceAppInfo);
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Instance.LogMessage(TracingLevel.WARN, $"Error getting app icon: {ex.Message}");
-            }
-
-            return state;
+        IAsyncInfo operation;
+        Task<T> pending;
+        try
+        {
+            (operation, pending) = start();
         }
         catch (Exception ex)
         {
-            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error in GetCurrentMediaStateAsync: {ex.Message}");
-            return InactiveState();
+            NoteCallFailure(name, ex, countsTowardManagerHealth);
+            return default;
+        }
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(token, _shutdownCts.Token);
+
+        try
+        {
+            var result = await pending.WaitAsync(timeout, cts.Token).ConfigureAwait(false);
+            Interlocked.Exchange(ref _consecutiveCallFailures, 0);
+            return result;
+        }
+        catch (TimeoutException)
+        {
+            Abandon(operation, pending, name);
+            Logger.Instance.LogMessage(
+                TracingLevel.WARN,
+                $"{name} timed out after {timeout.TotalMilliseconds:F0}ms");
+            if (countsTowardManagerHealth)
+            {
+                CountFailure();
+            }
+
+            return default;
+        }
+        catch (OperationCanceledException)
+        {
+            Abandon(operation, pending, name);
+            return default;
+        }
+        catch (Exception ex)
+        {
+            NoteCallFailure(name, ex, countsTowardManagerHealth);
+            return default;
+        }
+    }
+
+    private static void Abandon<T>(IAsyncInfo operation, Task<T> pending, string name)
+    {
+        pending.ContinueWith(
+            static task => _ = task.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+
+        try
+        {
+            operation.Cancel();
+        }
+        catch (Exception ex)
+        {
+            // A disconnected media app can fail the cancel itself; the operation is dropped either way.
+            Logger.Instance.LogMessage(TracingLevel.WARN, $"Failed to cancel {name}: {ex.Message}");
+        }
+    }
+
+    private void NoteCallFailure(string name, Exception ex, bool countsTowardManagerHealth = true)
+    {
+        Logger.Instance.LogMessage(TracingLevel.WARN, $"{name} failed: {ex.Message}");
+
+        if (ex is COMException or InvalidComObjectException)
+        {
+            MarkManagerLost();
+            return;
+        }
+
+        if (countsTowardManagerHealth)
+        {
+            CountFailure();
+        }
+    }
+
+    private void CountFailure()
+    {
+        if (Interlocked.Increment(ref _consecutiveCallFailures) >= MaxConsecutiveCallFailures)
+        {
+            MarkManagerLost();
+        }
+    }
+
+    private void MarkManagerLost()
+    {
+        if (_manager == null || _disposed)
+        {
+            return;
+        }
+
+        Interlocked.Exchange(ref _managerLost, 1);
+        _loop.Request();
+    }
+
+    private string ReadSourceId(SmtcSession session)
+    {
+        try
+        {
+            return session.SourceAppUserModelId ?? string.Empty;
+        }
+        catch (Exception ex)
+        {
+            NoteCallFailure("SourceAppUserModelId", ex);
+            return string.Empty;
+        }
+    }
+
+    private string? ReadCurrentSessionId(SmtcManager manager)
+    {
+        try
+        {
+            var current = manager.GetCurrentSession();
+            return current == null ? null : ReadSourceId(current);
+        }
+        catch (Exception ex)
+        {
+            NoteCallFailure("GetCurrentSession", ex);
+            return null;
+        }
+    }
+
+    private SmtcPlaybackInfo? ReadPlaybackInfo(SessionEntry entry)
+    {
+        try
+        {
+            return entry.Session.GetPlaybackInfo();
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.WARN, $"Failed to read playback info of {entry.Id}: {ex.Message}");
+            return null;
+        }
+    }
+
+    private static object? ReadSourceAppInfo(SmtcSession session)
+    {
+        try
+        {
+            return session.GetType().GetProperty("SourceAppInfo")?.GetValue(session);
+        }
+        catch
+        {
+            return null;
         }
     }
 
     private static MediaState InactiveState() => new() { IsActive = false };
 
-    private async Task<string> GetThumbnailBase64Async(IRandomAccessStreamReference thumbnail)
-    {
-        const int maxRetries = 3;
-        const int retryDelayMs = 250;
+    // Position and duration are deliberately left out: nothing renders them, so a ticking
+    // playback position must not force every key to redraw.
+    private static string BuildSignature(MediaState state) => string.Join(
+        SignatureSeparator,
+        state.IsActive ? "1" : "0",
+        state.Status,
+        state.Title,
+        state.Artist,
+        state.AlbumTitle,
+        state.AlbumArtist,
+        state.CoverArtBase64.Length.ToString(CultureInfo.InvariantCulture),
+        state.AppIconBase64.Length.ToString(CultureInfo.InvariantCulture));
 
-        for (var attempt = 1; attempt <= maxRetries; attempt++)
-        {
-            if (_disposed)
-            {
-                return string.Empty;
-            }
-
-            try
-            {
-                using var stream = await AwaitSessionOpAsync(
-                    thumbnail.OpenReadAsync().AsTask(),
-                    "thumbnail OpenReadAsync");
-                if (stream is null)
-                {
-                    if (_disposed || attempt >= maxRetries)
-                    {
-                        return string.Empty;
-                    }
-
-                    await Task.Delay(retryDelayMs);
-                    continue;
-                }
-
-                if (stream.Size == 0)
-                {
-                    return string.Empty;
-                }
-
-                stream.Seek(0);
-                var buffer = new global::Windows.Storage.Streams.Buffer((uint)stream.Size);
-                var read = await AwaitSessionOpAsync(
-                    stream.ReadAsync(buffer, (uint)stream.Size, InputStreamOptions.None).AsTask(),
-                    "thumbnail ReadAsync");
-                if (read is null)
-                {
-                    if (_disposed || attempt >= maxRetries)
-                    {
-                        return string.Empty;
-                    }
-
-                    await Task.Delay(retryDelayMs);
-                    continue;
-                }
-
-                return Convert.ToBase64String(buffer.ToArray());
-            }
-            catch (Exception ex)
-            {
-                Logger.Instance.LogMessage(TracingLevel.WARN, $"Thumbnail read attempt {attempt}/{maxRetries} failed: {ex.Message}");
-                if (_disposed)
-                {
-                    return string.Empty;
-                }
-
-                if (attempt < maxRetries)
-                {
-                    await Task.Delay(retryDelayMs);
-                }
-            }
-        }
-
-        return string.Empty;
-    }
-
-    private GlobalSystemMediaTransportControlsSession? FindBestMediaSession(GlobalSystemMediaTransportControlsSessionManager manager)
-    {
-        try
-        {
-            var allSessions = manager.GetSessions();
-            GlobalSystemMediaTransportControlsSession? pausedLastActive = null;
-            GlobalSystemMediaTransportControlsSession? pausedCurrent = null;
-            GlobalSystemMediaTransportControlsSession? anyPaused = null;
-
-            var currentSystemSession = manager.GetCurrentSession();
-
-            foreach (var session in allSessions)
-            {
-                try
-                {
-                    var playbackInfo = session.GetPlaybackInfo();
-                    if (playbackInfo == null)
-                    {
-                        continue;
-                    }
-
-                    if (playbackInfo.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
-                    {
-                        return session;
-                    }
-
-                    if (playbackInfo.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Paused)
-                    {
-                        if (_lastActiveSession != null && session.SourceAppUserModelId == _lastActiveSession.SourceAppUserModelId)
-                        {
-                            pausedLastActive = session;
-                        }
-
-                        if (currentSystemSession != null && session.SourceAppUserModelId == currentSystemSession.SourceAppUserModelId)
-                        {
-                            pausedCurrent = session;
-                        }
-
-                        anyPaused ??= session;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Instance.LogMessage(TracingLevel.WARN, $"Error finding best session: {ex.Message}");
-                }
-            }
-
-            return pausedCurrent
-                ?? pausedLastActive
-                ?? anyPaused
-                ?? allSessions.FirstOrDefault();
-        }
-        catch (Exception ex)
-        {
-            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Critical error in FindBestMediaSession: {ex.Message}");
-            return null;
-        }
-    }
-
-    private async Task<GlobalSystemMediaTransportControlsSession?> GetActiveSessionAsync()
-    {
-        if (_disposed)
-        {
-            return null;
-        }
-
-        if (_sessionManager == null)
-        {
-            await InitializeAsync();
-        }
-
-        if (_disposed)
-        {
-            return null;
-        }
-
-        return _sessionManager != null ? FindBestMediaSession(_sessionManager) : null;
-    }
-
-    private async Task SeekAsync(TimeSpan offset)
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        try
-        {
-            var activeSession = await GetActiveSessionAsync();
-            if (activeSession == null)
-            {
-                return;
-            }
-
-            var playbackInfo = activeSession.GetPlaybackInfo();
-            if (playbackInfo == null || !playbackInfo.Controls.IsPlaybackPositionEnabled)
-            {
-                return;
-            }
-
-            var timelineProperties = activeSession.GetTimelineProperties();
-            if (timelineProperties == null)
-            {
-                return;
-            }
-
-            var currentPosition = GetEffectivePlaybackPosition(timelineProperties, playbackInfo.PlaybackStatus);
-            var newPosition = currentPosition + offset;
-
-            if (newPosition < timelineProperties.StartTime)
-            {
-                newPosition = timelineProperties.StartTime;
-            }
-
-            if (timelineProperties.EndTime > TimeSpan.Zero && newPosition > timelineProperties.EndTime)
-            {
-                newPosition = timelineProperties.EndTime;
-            }
-
-            await AwaitSessionOpAsync(
-                activeSession.TryChangePlaybackPositionAsync(newPosition.Ticks).AsTask(),
-                "TryChangePlaybackPositionAsync");
-        }
-        catch (Exception ex)
-        {
-            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error seeking: {ex.Message}");
-        }
-    }
-
-    private static TimeSpan GetEffectivePlaybackPosition(
-        GlobalSystemMediaTransportControlsSessionTimelineProperties timeline,
-        GlobalSystemMediaTransportControlsSessionPlaybackStatus status)
+    private static TimeSpan GetEffectivePlaybackPosition(SmtcTimeline timeline, SmtcPlaybackStatus status)
     {
         var position = timeline.Position;
-        if (status == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
+        if (status == SmtcPlaybackStatus.Playing)
         {
             position += DateTimeOffset.UtcNow - timeline.LastUpdatedTime;
         }
 
         return position;
+    }
+
+    private sealed class SessionEntry
+    {
+        private long _propertiesReadAt;
+
+        public SessionEntry(SmtcSession session, string id, object? sourceAppInfo)
+        {
+            Session = session;
+            Id = id;
+            SourceAppInfo = sourceAppInfo;
+        }
+
+        public SmtcSession Session { get; }
+        public string Id { get; }
+        public object? SourceAppInfo { get; }
+        public SmtcPlaybackInfo? Playback { get; set; }
+        public TrackInfo? Track { get; set; }
+        public bool PropertiesStale { get; set; } = true;
+
+        // Some sources never raise MediaPropertiesChanged, so a cached track also expires on its own.
+        public bool NeedsProperties =>
+            PropertiesStale
+            || Track == null
+            || Environment.TickCount64 - _propertiesReadAt > PropertiesTtlMs;
+
+        public void MarkPropertiesRead()
+        {
+            PropertiesStale = false;
+            _propertiesReadAt = Environment.TickCount64;
+        }
+    }
+
+    private sealed class TrackInfo
+    {
+        private TrackInfo(
+            string title,
+            string artist,
+            string albumArtist,
+            string albumTitle,
+            List<string> artists,
+            string identity)
+        {
+            Title = title;
+            Artist = artist;
+            AlbumArtist = albumArtist;
+            AlbumTitle = albumTitle;
+            Artists = artists;
+            Identity = identity;
+        }
+
+        public string Title { get; }
+        public string Artist { get; }
+        public string AlbumArtist { get; }
+        public string AlbumTitle { get; }
+        public List<string> Artists { get; }
+        public string Identity { get; }
+        public string CoverArtBase64 { get; set; } = "";
+        public int ThumbnailAttempts { get; set; }
+
+        public bool HasText => Title.Length > 0 || Artist.Length > 0 || Artists.Count > 0;
+
+        public static TrackInfo? TryCreate(SmtcMediaProperties properties)
+        {
+            try
+            {
+                var title = properties.Title ?? string.Empty;
+                var artist = properties.Artist ?? string.Empty;
+                var albumTitle = properties.AlbumTitle ?? string.Empty;
+
+                return new TrackInfo(
+                    title,
+                    artist,
+                    properties.AlbumArtist ?? string.Empty,
+                    albumTitle,
+                    SplitArtists(artist),
+                    string.Join(SignatureSeparator, title, artist, albumTitle));
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogMessage(TracingLevel.WARN, $"Failed to read media properties: {ex.Message}");
+                return null;
+            }
+        }
+
+        private static List<string> SplitArtists(string artist)
+        {
+            if (artist.Length == 0)
+            {
+                return new List<string>();
+            }
+
+            return artist
+                .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(part => part.Trim())
+                .Where(part => part.Length > 0)
+                .ToList();
+        }
     }
 }

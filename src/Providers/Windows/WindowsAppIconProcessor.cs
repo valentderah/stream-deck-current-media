@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
+using BarRaider.SdTools;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
 
@@ -12,9 +13,15 @@ namespace CurrentMedia.Windows;
 static class WindowsAppIconProcessor
 {
     private const int IconSize = 32;
+    private const int MaxAttempts = 2;
     private static readonly ConcurrentDictionary<string, string> _iconCache = new();
+    private static readonly ConcurrentDictionary<string, int> _failedAttempts = new();
 
-    public static async Task<string> GetAppIconBase64Async(string appUserModelId, dynamic? sourceAppInfo)
+    public static async Task<string> GetAppIconBase64Async(
+        string appUserModelId,
+        object? sourceAppInfo,
+        TimeSpan timeout,
+        CancellationToken token)
     {
         if (string.IsNullOrEmpty(appUserModelId))
         {
@@ -28,127 +35,149 @@ static class WindowsAppIconProcessor
 
         try
         {
-            if (sourceAppInfo != null)
+            var icon = await ResolveAsync(appUserModelId, sourceAppInfo)
+                .WaitAsync(timeout, token)
+                .ConfigureAwait(false);
+
+            if (!string.IsNullOrEmpty(icon))
             {
-                try
-                {
-                    var displayInfo = sourceAppInfo?.DisplayInfo;
-                    if (displayInfo != null)
-                    {
-                        var logoStreamRef = displayInfo.GetLogo(new global::Windows.Foundation.Size(IconSize, IconSize));
-                        if (logoStreamRef != null)
-                        {
-                            using var stream = await logoStreamRef.OpenReadAsync();
-                            if (stream != null && stream.Size > 0)
-                            {
-                                var result = await EncodeStreamToBase64Async(stream);
-                                if (!string.IsNullOrEmpty(result))
-                                {
-                                    _iconCache.TryAdd(appUserModelId, result);
-                                    return result;
-                                }
-                            }
-                        }
-                    }
-                }
-                catch
-                {
-                    // ignored
-                }
-            }
-
-            var packageManager = new global::Windows.Management.Deployment.PackageManager();
-            var packageFamilyName = appUserModelId.Split('!').FirstOrDefault();
-
-            if (string.IsNullOrEmpty(packageFamilyName))
-            {
-                return string.Empty;
-            }
-
-            var packages = packageManager.FindPackagesForUser(string.Empty, packageFamilyName);
-
-            if (!packages.Any())
-            {
-                try
-                {
-                    var exePath = FindExecutablePath(appUserModelId);
-                    if (!string.IsNullOrEmpty(exePath) && File.Exists(exePath))
-                    {
-                        try
-                        {
-                            var result = await ConvertIconToBase64Async(exePath, IconSize);
-                            if (!string.IsNullOrEmpty(result))
-                            {
-                                _iconCache.TryAdd(appUserModelId, result);
-                                return result;
-                            }
-                        }
-                        catch
-                        {
-                            // ignored
-                        }
-                    }
-                }
-                catch
-                {
-                    // ignored
-                }
-
-                return string.Empty;
-            }
-
-            var package = packages.First();
-            var appListEntries = await package.GetAppListEntriesAsync();
-            var entry = appListEntries.FirstOrDefault(e => e.AppUserModelId == appUserModelId);
-
-            if (entry == null)
-            {
-                return string.Empty;
-            }
-
-            var logo = entry.DisplayInfo.GetLogo(new global::Windows.Foundation.Size(IconSize, IconSize));
-            if (logo != null)
-            {
-                using var stream = await logo.OpenReadAsync();
-                var result = await EncodeStreamToBase64Async(stream);
-                if (!string.IsNullOrEmpty(result))
-                {
-                    _iconCache.TryAdd(appUserModelId, result);
-                    return result;
-                }
+                _iconCache[appUserModelId] = icon;
+                return icon;
             }
         }
-        catch
+        catch (TimeoutException)
         {
-            // ignored
+            Logger.Instance.LogMessage(TracingLevel.WARN, $"App icon lookup for {appUserModelId} timed out");
+        }
+        catch (OperationCanceledException)
+        {
+            return string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.WARN, $"App icon lookup for {appUserModelId} failed: {ex.Message}");
         }
 
+        RecordFailedAttempt(appUserModelId);
         return string.Empty;
+    }
+
+    private static void RecordFailedAttempt(string appUserModelId)
+    {
+        if (_failedAttempts.AddOrUpdate(appUserModelId, 1, (_, attempts) => attempts + 1) >= MaxAttempts)
+        {
+            // Stop probing the shell on every refresh for apps that have no reachable icon.
+            _iconCache[appUserModelId] = string.Empty;
+        }
+    }
+
+    private static async Task<string> ResolveAsync(string appUserModelId, dynamic? sourceAppInfo)
+    {
+        var fromSourceApp = await TryResolveFromSourceAppAsync(sourceAppInfo);
+        if (!string.IsNullOrEmpty(fromSourceApp))
+        {
+            return fromSourceApp;
+        }
+
+        var packageFamilyName = appUserModelId.Split('!').FirstOrDefault();
+        if (string.IsNullOrEmpty(packageFamilyName))
+        {
+            return string.Empty;
+        }
+
+        var packageManager = new global::Windows.Management.Deployment.PackageManager();
+        var packages = packageManager.FindPackagesForUser(string.Empty, packageFamilyName);
+
+        if (!packages.Any())
+        {
+            var exePath = FindExecutablePath(appUserModelId);
+            return !string.IsNullOrEmpty(exePath) && File.Exists(exePath)
+                ? await ConvertIconToBase64Async(exePath, IconSize)
+                : string.Empty;
+        }
+
+        var package = packages.First();
+        var appListEntries = await package.GetAppListEntriesAsync();
+        var entry = appListEntries.FirstOrDefault(e => e.AppUserModelId == appUserModelId);
+
+        var logo = entry?.DisplayInfo.GetLogo(new global::Windows.Foundation.Size(IconSize, IconSize));
+        if (logo == null)
+        {
+            return string.Empty;
+        }
+
+        using var logoStream = await logo.OpenReadAsync();
+        return await EncodeStreamToBase64Async(logoStream);
+    }
+
+    private static async Task<string> TryResolveFromSourceAppAsync(dynamic? sourceAppInfo)
+    {
+        if (sourceAppInfo == null)
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            var displayInfo = sourceAppInfo?.DisplayInfo;
+            var logoStreamRef = displayInfo?.GetLogo(new global::Windows.Foundation.Size(IconSize, IconSize));
+            if (logoStreamRef == null)
+            {
+                return string.Empty;
+            }
+
+            IRandomAccessStream? stream = await logoStreamRef.OpenReadAsync();
+            using (stream)
+            {
+                return stream == null || stream.Size == 0
+                    ? string.Empty
+                    : await EncodeStreamToBase64Async(stream);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.WARN, $"SourceAppInfo icon lookup failed: {ex.Message}");
+            return string.Empty;
+        }
     }
 
     private static string? FindExecutablePath(string processName)
     {
+        Process[] processes;
         try
         {
-            var processes = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(processName));
-            if (processes.Length > 0)
+            processes = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(processName));
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.WARN, $"Failed to enumerate {processName}: {ex.Message}");
+            return null;
+        }
+
+        try
+        {
+            foreach (var process in processes)
             {
-                var process = processes[0];
                 try
                 {
                     var exePath = process.MainModule?.FileName;
-                    process.Dispose();
-                    return exePath;
+                    if (!string.IsNullOrEmpty(exePath))
+                    {
+                        return exePath;
+                    }
                 }
                 catch
                 {
-                    process.Dispose();
+                    // Protected or exited process, try the next one.
                 }
             }
         }
-        catch
+        finally
         {
-            // ignored
+            foreach (var process in processes)
+            {
+                process.Dispose();
+            }
         }
 
         return null;
