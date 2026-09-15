@@ -52,6 +52,10 @@
 		"TitleOnly": "Titre uniquement",
 		"AppIconOnly": "Icône d'application uniquement",
 		"StatusOnly": "Statut uniquement",
-		"AppIconAndStatus": "Icône d'application et statut"
+		"AppIconAndStatus": "Icône d'application et statut",
+		"IdleBackground": "Fond inactif",
+		"ChooseImage": "Choisir…",
+		"ClearImage": "Effacer",
+		"NoFile": "Aucun fichier"
 	}
 }

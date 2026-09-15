@@ -52,6 +52,10 @@
 		"TitleOnly": "タイトルのみ",
 		"AppIconOnly": "アプリアイコンのみ",
 		"StatusOnly": "ステータスのみ",
-		"AppIconAndStatus": "アプリアイコンとステータス"
+		"AppIconAndStatus": "アプリアイコンとステータス",
+		"IdleBackground": "待機背景",
+		"ChooseImage": "選択…",
+		"ClearImage": "クリア",
+		"NoFile": "ファイルなし"
 	}
 }

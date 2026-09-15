@@ -24,6 +24,10 @@
     <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="2.1.4" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="CurrentMedia.Tests" />
+  </ItemGroup>
+
   <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
     <Compile Remove="Providers\Windows\**" />
   </ItemGroup>

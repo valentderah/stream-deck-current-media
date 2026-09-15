@@ -1,9 +1,11 @@
 (function () {
 	"use strict";
 
-	let websocket = null;
+	var websocket = null;
 	let pluginUUID = null;
-	let settings = {};
+	var actionUUID = null;
+	var settings = {};
+	var translations = {};
 
 	function getDefaults() {
 		var defaults = {};
@@ -18,6 +20,8 @@
 				defaults[key] = value;
 			}
 		});
+		defaults.idleImage = "";
+		defaults.idleImageName = "";
 		return defaults;
 	}
 
@@ -26,11 +30,13 @@
 
 		const parsedInfo = JSON.parse(info);
 		const parsedActionInfo = JSON.parse(actionInfo);
+		actionUUID = parsedActionInfo.action;
 		const lang = parsedInfo.application.language || "en";
 
 		settings = Object.assign({}, getDefaults(), parsedActionInfo.payload.settings || {});
 
-		loadLocalization(lang).then(function (translations) {
+		loadLocalization(lang).then(function (loaded) {
+			translations = loaded;
 			applyLocalization(translations);
 			applySettings();
 			document.body.style.visibility = "visible";
@@ -52,6 +58,7 @@
 		};
 
 		bindSettingListeners();
+		bindIdleImageControls();
 	};
 
 	function loadLocalization(lang) {
@@ -76,7 +83,9 @@
 	function applyLocalization(translations) {
 		document.querySelectorAll("[data-i18n]").forEach(function (el) {
 			var key = el.getAttribute("data-i18n");
-			if (translations[key]) el.textContent = translations[key];
+			if (!translations[key]) return;
+			if (el.id === "idleImageName" && settings.idleImageName) return;
+			el.textContent = translations[key];
 		});
 	}
 
@@ -97,6 +106,15 @@
 				if (label) label.textContent = value;
 			}
 		});
+
+		var nameEl = document.getElementById("idleImageName");
+		if (nameEl) {
+			if (settings.idleImageName) {
+				nameEl.textContent = settings.idleImageName;
+			} else if (translations.NoFile) {
+				nameEl.textContent = translations.NoFile;
+			}
+		}
 	}
 
 	function bindSettingListeners() {
@@ -106,7 +124,7 @@
 				var key = el.getAttribute("data-setting");
 				var val = el.type === "checkbox" ? el.checked : (el.type === "range" ? parseInt(el.value, 10) : el.value);
 				settings[key] = val;
-				
+
 				if (el.type === "range") {
 					var label = document.querySelector('.sdpi-range-value[data-for="' + key + '"]');
 					if (label) label.textContent = val;
@@ -115,6 +133,32 @@
 				sendSettings();
 			});
 		});
+	}
+
+	function bindIdleImageControls() {
+		var chooseBtn = document.getElementById("idleImageChoose");
+		var clearBtn = document.getElementById("idleImageClear");
+
+		chooseBtn.addEventListener("click", function () {
+			sendToPlugin({ event: "pickIdleImage" });
+		});
+
+		clearBtn.addEventListener("click", function () {
+			settings.idleImage = "";
+			settings.idleImageName = "";
+			applySettings();
+			sendSettings();
+		});
+	}
+
+	function sendToPlugin(payload) {
+		if (!websocket || websocket.readyState !== WebSocket.OPEN) return;
+		websocket.send(JSON.stringify({
+			event: "sendToPlugin",
+			action: actionUUID,
+			context: pluginUUID,
+			payload: payload
+		}));
 	}
 
 	function sendSettings() {

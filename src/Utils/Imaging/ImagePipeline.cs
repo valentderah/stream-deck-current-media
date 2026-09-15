@@ -27,37 +27,56 @@ public static class ImagePipeline
         MediaState state,
         ImagePosition position,
         CropMode cropMode,
-        OverlayDisplayMode overlayMode)
+        OverlayDisplayMode overlayMode,
+        string? idleImage = null)
     {
-        return _cache.RunWithBitmaps(bitmaps =>
+        Image<Rgba32>? idleBitmap = null;
+        if (position == ImagePosition.NoImage)
         {
-            var size = position is ImagePosition.None or ImagePosition.NoImage
-                ? ImageSizeFull
-                : ImageSizeSingleCell;
+            idleBitmap = IdleImageHelper.DecodeDataUri(idleImage);
+        }
 
-            Image<Rgba32> baseBitmap;
-            if (position == ImagePosition.NoImage || bitmaps == null)
+        try
+        {
+            return _cache.RunWithBitmaps(bitmaps =>
             {
-                baseBitmap = ImageExtensions.CreateTransparent(size);
-            }
-            else
-            {
-                var cached = bitmaps.Get(position, cropMode);
-                if (cached == null)
+                var size = position is ImagePosition.None or ImagePosition.NoImage
+                    ? ImageSizeFull
+                    : ImageSizeSingleCell;
+
+                Image<Rgba32> baseBitmap;
+                if (position == ImagePosition.NoImage)
+                {
+                    baseBitmap = idleBitmap ?? ImageExtensions.CreateTransparent(size);
+                    idleBitmap = null;
+                }
+                else if (bitmaps == null)
                 {
                     baseBitmap = ImageExtensions.CreateTransparent(size);
                 }
                 else
                 {
-                    baseBitmap = ImageExtensions.CloneImage(cached);
+                    var cached = bitmaps.Get(position, cropMode);
+                    if (cached == null)
+                    {
+                        baseBitmap = ImageExtensions.CreateTransparent(size);
+                    }
+                    else
+                    {
+                        baseBitmap = ImageExtensions.CloneImage(cached);
+                    }
                 }
-            }
 
-            using (baseBitmap)
-            using (var withOverlay = OverlayRenderer.Apply(baseBitmap, state, overlayMode, bitmaps?.Icon))
-            {
-                return ImageExtensions.ToPngDataUri(withOverlay);
-            }
-        });
+                using (baseBitmap)
+                using (var withOverlay = OverlayRenderer.Apply(baseBitmap, state, overlayMode, bitmaps?.Icon))
+                {
+                    return ImageExtensions.ToPngDataUri(withOverlay);
+                }
+            });
+        }
+        finally
+        {
+            idleBitmap?.Dispose();
+        }
     }
 }

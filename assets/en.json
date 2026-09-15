@@ -52,6 +52,10 @@
 		"TitleOnly": "Title Only",
 		"AppIconOnly": "App Icon Only",
 		"StatusOnly": "Status Only",
-		"AppIconAndStatus": "App Icon and Status"
+		"AppIconAndStatus": "App Icon and Status",
+		"IdleBackground": "Idle Background",
+		"ChooseImage": "Choose…",
+		"ClearImage": "Clear",
+		"NoFile": "No file"
 	}
 }

@@ -6,6 +6,7 @@ using BarRaider.SdTools.Wrappers;
 using CurrentMedia.Imaging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Linq;
 
 namespace CurrentMedia.Actions;
 
@@ -41,6 +42,12 @@ public class NowPlayingAction : KeypadBase
         [JsonProperty(PropertyName = "cropMode")]
         [JsonConverter(typeof(StringEnumConverter))]
         public CropMode CropMode { get; set; } = CropMode.Square;
+
+        [JsonProperty(PropertyName = "idleImage")]
+        public string IdleImage { get; set; } = "";
+
+        [JsonProperty(PropertyName = "idleImageName")]
+        public string IdleImageName { get; set; } = "";
     }
 
     private readonly PluginSettings _settings;
@@ -86,6 +93,7 @@ public class NowPlayingAction : KeypadBase
 
         MediaManagerProvider.Instance.MediaStateChanged += OnMediaStateChanged;
         Connection.OnPropertyInspectorDidAppear += OnPropertyInspectorDidAppear;
+        Connection.OnSendToPlugin += OnSendToPlugin;
         RestartMarqueeTimer();
         _ = InitializeAndUpdateAsync();
     }
@@ -107,6 +115,7 @@ public class NowPlayingAction : KeypadBase
         _marqueeTimer = null;
         MediaManagerProvider.Instance.MediaStateChanged -= OnMediaStateChanged;
         Connection.OnPropertyInspectorDidAppear -= OnPropertyInspectorDidAppear;
+        Connection.OnSendToPlugin -= OnSendToPlugin;
         Logger.Instance.LogMessage(TracingLevel.INFO, "NowPlayingAction disposed");
     }
 
@@ -115,8 +124,6 @@ public class NowPlayingAction : KeypadBase
         try
         {
             _currentMediaState = state;
-            ImagePipeline.DisposeCache();
-            ImagePipeline.PrepareCache(state);
             await UpdateDisplayAsync(state);
         }
         catch (Exception ex)
@@ -162,13 +169,46 @@ public class NowPlayingAction : KeypadBase
     {
         Tools.AutoPopulateSettings(_settings, payload.Settings);
         RestartMarqueeTimer();
-        if (_currentMediaState != null)
-        {
-            _ = UpdateDisplayAsync(_currentMediaState);
-        }
+        _ = UpdateDisplayAsync(_currentMediaState ?? new MediaState());
     }
 
     public override void ReceivedGlobalSettings(ReceivedGlobalSettingsPayload payload) { }
+
+    private void OnSendToPlugin(object? sender, SDEventReceivedEventArgs<BarRaider.SdTools.Events.SendToPlugin> e)
+    {
+        if (e.Event.Payload?["event"]?.ToString() == "pickIdleImage")
+        {
+            _ = PickIdleImageAsync();
+        }
+    }
+
+    private async Task PickIdleImageAsync()
+    {
+        try
+        {
+            var path = await Task.Run(() => NativeIdleImagePicker.Pick());
+            if (string.IsNullOrEmpty(path))
+            {
+                return;
+            }
+
+            var png = await Task.Run(() => IdleImageHelper.TryLoadFromFile(path));
+            if (png == null)
+            {
+                Logger.Instance.LogMessage(TracingLevel.WARN, $"Could not load idle image from {path}");
+                return;
+            }
+
+            _settings.IdleImage = png;
+            _settings.IdleImageName = Path.GetFileName(path);
+            await Connection.SetSettingsAsync(JObject.FromObject(_settings));
+            await UpdateDisplayAsync(_currentMediaState ?? new MediaState());
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error picking idle image: {ex.Message}");
+        }
+    }
 
     private async Task UpdateDisplayAsync(MediaState state)
     {
@@ -180,12 +220,18 @@ public class NowPlayingAction : KeypadBase
     {
         try
         {
-            var imageSize = (_settings.Position == ImagePosition.None || _settings.Position == ImagePosition.NoImage)
-                ? ImagePipeline.TargetSize
-                : ImagePipeline.PartSize;
-
-            if (!state.IsActive || !state.HasMediaData)
+            var hasMedia = state.HasMediaData;
+            if (!hasMedia)
             {
+                if (!string.IsNullOrEmpty(_settings.IdleImage))
+                {
+                    await Connection.SetImageAsync(_settings.IdleImage);
+                    return;
+                }
+
+                var imageSize = (_settings.Position is ImagePosition.None or ImagePosition.NoImage)
+                    ? ImagePipeline.TargetSize
+                    : ImagePipeline.PartSize;
                 using var transparent = ImageExtensions.CreateTransparent(imageSize);
                 await Connection.SetImageAsync(ImageExtensions.ToPngDataUri(transparent));
                 return;
@@ -195,7 +241,8 @@ public class NowPlayingAction : KeypadBase
                 state,
                 _settings.Position,
                 _settings.CropMode,
-                _settings.OverlayDisplayMode);
+                _settings.OverlayDisplayMode,
+                _settings.IdleImage);
             await Connection.SetImageAsync(dataUri);
         }
         catch (Exception ex)

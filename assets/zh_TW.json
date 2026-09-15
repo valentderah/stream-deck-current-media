@@ -52,6 +52,10 @@
 		"TitleOnly": "僅標題",
 		"AppIconOnly": "僅應用程式圖示",
 		"StatusOnly": "僅狀態",
-		"AppIconAndStatus": "應用程式圖示與狀態"
+		"AppIconAndStatus": "應用程式圖示與狀態",
+		"IdleBackground": "閒置背景",
+		"ChooseImage": "選擇…",
+		"ClearImage": "清除",
+		"NoFile": "無檔案"
 	}
 }

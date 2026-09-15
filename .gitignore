@@ -12,6 +12,7 @@ build/
 
 .idea/
 .vscode/
+.worktrees/
 *.swp
 *.swo
 *~

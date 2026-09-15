@@ -52,6 +52,10 @@
 		"TitleOnly": "仅标题",
 		"AppIconOnly": "仅应用图标",
 		"StatusOnly": "仅状态",
-		"AppIconAndStatus": "应用图标和状态"
+		"AppIconAndStatus": "应用图标和状态",
+		"IdleBackground": "空闲背景",
+		"ChooseImage": "选择…",
+		"ClearImage": "清除",
+		"NoFile": "无文件"
 	}
 }

@@ -1,7 +1,7 @@
 PLUGIN_NAME = ru.valentderah.current-media.sdPlugin
 DIST_DIR = dist/$(PLUGIN_NAME)
 
-.PHONY: build static build-static build-windows build-macos pack prod prod-windows
+.PHONY: build static build-static build-windows build-macos pack prod prod-windows test
 
 static:
 ifeq ($(OS),Windows_NT)
@@ -32,3 +32,6 @@ else
 endif
 
 prod: build pack
+
+test:
+	dotnet test tests/CurrentMedia.Tests/CurrentMedia.Tests.csproj -f net8.0

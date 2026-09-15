@@ -153,3 +153,39 @@ input[type="range"]:focus {
 	text-align: right;
 	font-variant-numeric: tabular-nums;
 }
+
+.sdpi-file-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	min-width: 0;
+}
+
+.sdpi-file-row button {
+	height: 26px;
+	padding: 0 8px;
+	background: var(--input-bg);
+	color: var(--input-font-color);
+	border: 1px solid var(--border-color);
+	border-radius: 3px;
+	cursor: pointer;
+	font-family: inherit;
+	font-size: inherit;
+	white-space: nowrap;
+	display: inline-flex;
+	align-items: center;
+	box-sizing: border-box;
+}
+
+.sdpi-file-row button:hover {
+	border-color: var(--highlight-color);
+}
+
+.sdpi-file-name {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
