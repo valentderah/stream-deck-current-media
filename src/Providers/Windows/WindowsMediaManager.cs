@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using BarRaider.SdTools;
@@ -30,9 +29,9 @@ public sealed class WindowsMediaManager : IMediaManager
     private readonly RefreshLoop _loop;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly CancellationTokenSource _shutdownCts = new();
-    private readonly Dictionary<SmtcSession, SessionEntry> _entries = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SmtcSession, SessionEntry> _entries = new(EqualityComparer<SmtcSession>.Default);
     private readonly List<SessionEntry> _ordered = new();
-    private readonly ConcurrentDictionary<SmtcSession, byte> _propertyChanges = new(ReferenceEqualityComparer.Instance);
+    private readonly ConcurrentDictionary<SmtcSession, byte> _propertyChanges = new(EqualityComparer<SmtcSession>.Default);
 
     private volatile SmtcManager? _manager;
     private volatile TaskCompletionSource _managerReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -292,7 +291,7 @@ public sealed class WindowsMediaManager : IMediaManager
         }
 
         _ordered.Clear();
-        var live = new HashSet<SmtcSession>(ReferenceEqualityComparer.Instance);
+        var live = new HashSet<SmtcSession>(EqualityComparer<SmtcSession>.Default);
 
         foreach (var session in sessions)
         {
@@ -1074,8 +1073,8 @@ public sealed class WindowsMediaManager : IMediaManager
         state.Artist,
         state.AlbumTitle,
         state.AlbumArtist,
-        state.CoverArtBase64.Length.ToString(CultureInfo.InvariantCulture),
-        state.AppIconBase64.Length.ToString(CultureInfo.InvariantCulture));
+        Fnv1a.Hash32Hex(state.CoverArtBase64),
+        Fnv1a.Hash32Hex(state.AppIconBase64));
 
     private static TimeSpan GetEffectivePlaybackPosition(SmtcTimeline timeline, SmtcPlaybackStatus status)
     {

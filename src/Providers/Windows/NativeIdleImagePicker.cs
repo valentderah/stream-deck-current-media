@@ -50,7 +50,6 @@ static class NativeIdleImagePicker
         try
         {
             Marshal.Copy(new byte[maxChars * 2], 0, fileBuffer, maxChars * 2);
-            StealForeground(owner);
 
             var ofn = new OpenFileName
             {
@@ -117,28 +116,6 @@ static class NativeIdleImagePicker
             IntPtr.Zero);
     }
 
-    private static void StealForeground(IntPtr owner)
-    {
-        if (owner == IntPtr.Zero)
-        {
-            return;
-        }
-
-        var foreground = GetForegroundWindow();
-        var foregroundThread = GetWindowThreadProcessId(foreground, out _);
-        var thisThread = GetCurrentThreadId();
-        if (foregroundThread != 0 && foregroundThread != thisThread)
-        {
-            AttachThreadInput(foregroundThread, thisThread, true);
-            BringWindowToTop(owner);
-            SetForegroundWindow(owner);
-            AttachThreadInput(foregroundThread, thisThread, false);
-            return;
-        }
-
-        SetForegroundWindow(owner);
-    }
-
     private const int OfnHideReadOnly = 0x00000004;
     private const int OfnNoChangeDir = 0x00000008;
     private const int OfnPathMustExist = 0x00000800;
@@ -189,21 +166,6 @@ static class NativeIdleImagePicker
     [DllImport("comdlg32.dll")]
     private static extern int CommDlgExtendedError();
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetForegroundWindow();
-
-    [DllImport("user32.dll")]
-    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
-
-    [DllImport("user32.dll")]
-    private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
-
-    [DllImport("user32.dll")]
-    private static extern bool SetForegroundWindow(IntPtr hWnd);
-
-    [DllImport("user32.dll")]
-    private static extern bool BringWindowToTop(IntPtr hWnd);
-
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr CreateWindowExW(
         uint dwExStyle,
@@ -221,9 +183,6 @@ static class NativeIdleImagePicker
 
     [DllImport("user32.dll")]
     private static extern bool DestroyWindow(IntPtr hWnd);
-
-    [DllImport("kernel32.dll")]
-    private static extern uint GetCurrentThreadId();
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr GetModuleHandleW(string? lpModuleName);

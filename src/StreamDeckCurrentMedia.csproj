@@ -43,5 +43,6 @@
     <TrimmerRootAssembly Include="Newtonsoft.Json" />
     <TrimmerRootAssembly Include="Microsoft.CSharp" />
     <TrimmerRootAssembly Include="SixLabors.ImageSharp" />
+    <TrimmerRootAssembly Include="StreamDeckCurrentMedia" />
   </ItemGroup>
 </Project>

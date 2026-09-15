@@ -36,43 +36,32 @@ public static class ImagePipeline
             idleBitmap = IdleImageHelper.DecodeDataUri(idleImage);
         }
 
+        var includeIcon = overlayMode is OverlayDisplayMode.Icon or OverlayDisplayMode.Both;
+        var size = position is ImagePosition.None or ImagePosition.NoImage
+            ? ImageSizeFull
+            : ImageSizeSingleCell;
+
+        Image<Rgba32>? iconClone = null;
+        Image<Rgba32> baseBitmap;
         try
         {
-            return _cache.RunWithBitmaps(bitmaps =>
+            if (position == ImagePosition.NoImage)
             {
-                var size = position is ImagePosition.None or ImagePosition.NoImage
-                    ? ImageSizeFull
-                    : ImageSizeSingleCell;
+                iconClone = _cache.CloneIcon(includeIcon);
+                baseBitmap = idleBitmap ?? ImageExtensions.CreateTransparent(size);
+                idleBitmap = null;
+            }
+            else
+            {
+                (baseBitmap, iconClone) = _cache.CloneCoverAndIcon(position, cropMode, size, includeIcon);
+            }
 
-                Image<Rgba32> baseBitmap;
-                if (position == ImagePosition.NoImage)
-                {
-                    baseBitmap = idleBitmap ?? ImageExtensions.CreateTransparent(size);
-                    idleBitmap = null;
-                }
-                else if (bitmaps == null)
-                {
-                    baseBitmap = ImageExtensions.CreateTransparent(size);
-                }
-                else
-                {
-                    var cached = bitmaps.Get(position, cropMode);
-                    if (cached == null)
-                    {
-                        baseBitmap = ImageExtensions.CreateTransparent(size);
-                    }
-                    else
-                    {
-                        baseBitmap = ImageExtensions.CloneImage(cached);
-                    }
-                }
-
-                using (baseBitmap)
-                using (var withOverlay = OverlayRenderer.Apply(baseBitmap, state, overlayMode, bitmaps?.Icon))
-                {
-                    return ImageExtensions.ToPngDataUri(withOverlay);
-                }
-            });
+            using (baseBitmap)
+            using (iconClone)
+            using (var withOverlay = OverlayRenderer.Apply(baseBitmap, state, overlayMode, iconClone))
+            {
+                return ImageExtensions.ToPngDataUri(withOverlay);
+            }
         }
         finally
         {

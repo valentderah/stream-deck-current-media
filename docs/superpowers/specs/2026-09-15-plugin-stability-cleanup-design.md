@@ -45,7 +45,9 @@ Behavior stays: subscribe once per identity; detach when `GetSessions()` no long
 
 `BuildSignature` currently uses `CoverArtBase64.Length` and `AppIconBase64.Length`. Same title/artist plus same byte length (or both empty) suppresses a real art change.
 
-Replace both length fields with 32-bit FNV-1a over the UTF-8 bytes of the full Base64 string (offset basis `2166136261`, prime `16777619`). Put the helper in `src/Core` (for example `Fnv1a`). Format the digest as invariant lowercase hex in the signature. Cover with unit tests: empty string hashes to `811c9dc5`; two strings of equal length but different bytes differ.
+Replace both length fields with 32-bit FNV-1a. Helper in `src/Core` (for example `Fnv1a.Hash32`). Signature: offset basis `2166136261`, prime `16777619`. Input is `ReadOnlySpan<char>` (and a `string` overload that forwards `.AsSpan()`). Base64 is ASCII-only: hash each character as `(byte)c`. Do **not** call `Encoding.UTF8.GetBytes` or allocate a byte array.
+
+Format the digest as invariant lowercase hex (`x8`) in the signature. Tests: empty span hashes to `811c9dc5`; two equal-length different strings differ; hashing `"A"` does not allocate (or at least does not go through UTF-8 encoding).
 
 Leave `IsActive`, `Status`, title, artist, album fields as they are. Do not put playback position into the signature.
 
@@ -55,7 +57,7 @@ Leave `IsActive`, `Status`, title, artist, album fields as they are. Do not put 
 
 Under the lock: clone the cached cover for the requested position/crop, and clone `Icon` if the overlay will read it. Dispose/update of `_bitmaps` remains under the same lock in `Update`.
 
-Outside the lock: overlay and PNG encode. Clones are owned by the caller and disposed after encode.
+Outside the lock: overlay and PNG encode. Both clones are owned by the caller. `RenderForPosition` **must** `using`-dispose the cloned cover **and** the cloned icon after `OverlayRenderer.Apply` / `ToPngDataUri`. Dropping the icon clone leaks ImageSharp native buffers on every key paint.
 
 `PrepareCache` / `Update` stay as they are (decode under lock).
 
@@ -75,7 +77,16 @@ Do not turn off trimming. Do not add `DynamicDependency` in this pass unless a l
 
 `StealForeground` calls `AttachThreadInput` against the current foreground thread. If that thread is stuck, the picker STA thread hangs with it.
 
-Remove `StealForeground` and the `AttachThreadInput` P/Invokes used only by it. Keep the existing owner window with `WS_EX_TOPMOST | WS_EX_TOOLWINDOW`. Dialog still uses `hwndOwner = owner`.
+Remove `StealForeground` and every P/Invoke used only by it:
+
+- `AttachThreadInput`
+- `GetForegroundWindow`
+- `GetWindowThreadProcessId`
+- `BringWindowToTop`
+- `SetForegroundWindow`
+- `GetCurrentThreadId`
+
+Keep the existing owner window with `WS_EX_TOPMOST | WS_EX_TOOLWINDOW`. Dialog still uses `hwndOwner = owner`. Do not leave unused `DllImport` signatures in the file.
 
 ## 6. Dead code to delete
 
@@ -97,8 +108,9 @@ Do not delete `native/mediaremote-adapter/`.
 
 ## Testing
 
-- New: FNV-1a tests (empty, known vector or pairwise inequality).
-- Existing `ImagePipelineIdleTests` still pass.
+- New: FNV-1a tests (empty → `811c9dc5`; equal length, different bytes).
+- Existing `ImagePipelineIdleTests` still pass (no icon/cover clone leak on the idle path).
+- After deleting idle-picker imports, the Windows picker file must not reference the removed APIs.
 - Existing `RefreshLoopTests` / `MediaClientTimeoutsTests` unchanged.
 - Manual Windows: two media sources; change track with same-length art if possible; four Now Playing keys; idle image picker while a game/player is focused.
 
@@ -108,5 +120,6 @@ Do not delete `native/mediaremote-adapter/`.
 - Cover-only changes publish a new image.
 - PNG encode does not run inside `ImagePipelineCache`’s lock.
 - Trimmed publish still round-trips action settings.
-- Idle picker cannot hang on `AttachThreadInput`.
+- Cloned overlay icon is disposed after each render.
+- Idle picker cannot hang on `AttachThreadInput`; unused Win32 imports are gone.
 - Listed dead paths are gone from the tree.

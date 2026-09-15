@@ -1,3 +1,6 @@
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+
 namespace CurrentMedia.Imaging;
 
 sealed class ImagePipelineCache : IDisposable
@@ -34,11 +37,35 @@ sealed class ImagePipelineCache : IDisposable
         }
     }
 
-    public T RunWithBitmaps<T>(Func<ProcessedBitmaps?, T> action)
+    public Image<Rgba32>? CloneIcon(bool includeIcon)
     {
         lock (_lock)
         {
-            return action(_bitmaps);
+            if (!includeIcon || _bitmaps?.Icon == null)
+            {
+                return null;
+            }
+
+            return ImageExtensions.CloneImage(_bitmaps.Icon);
+        }
+    }
+
+    public (Image<Rgba32> Cover, Image<Rgba32>? Icon) CloneCoverAndIcon(
+        ImagePosition position,
+        CropMode cropMode,
+        int size,
+        bool includeIcon)
+    {
+        lock (_lock)
+        {
+            var cached = _bitmaps?.Get(position, cropMode);
+            var cover = cached == null
+                ? ImageExtensions.CreateTransparent(size)
+                : ImageExtensions.CloneImage(cached);
+            var icon = includeIcon && _bitmaps?.Icon != null
+                ? ImageExtensions.CloneImage(_bitmaps.Icon)
+                : null;
+            return (cover, icon);
         }
     }
 
