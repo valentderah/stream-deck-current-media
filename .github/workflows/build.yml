@@ -81,4 +81,4 @@ jobs:
           if [[ -z "${NOTES// }" ]]; then
             NOTES="Plugin ${TAG}"
           fi
-          gh release create "$TAG" "$ASSET" --title "$TAG" --notes "$NOTES" --fail-on-existing
+          gh release create "$TAG" "$ASSET" --title "$TAG" --notes "$NOTES" --verify-tag
