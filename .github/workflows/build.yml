@@ -1,0 +1,84 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-elgato-cli
+          restore-keys: |
+            npm-${{ runner.os }}-
+
+      - name: Install Stream Deck CLI
+        run: npm install -g @elgato/cli
+
+      - name: Test
+        run: make test
+
+      - name: Build
+        run: make build
+
+      - name: Check manifest version for release tags
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        run: bash scripts/ci-check-manifest-version.sh "${{ github.ref_name }}" assets/manifest.json
+
+      - name: Pack
+        run: make pack
+
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: streamdeck-plugin
+          path: dist/ru.valentderah.current-media.streamDeckPlugin
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: github.event_name == 'push' && !github.event.repository.fork && startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${{ github.ref_name }}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Not a three-part release tag ($TAG), skip release"
+            exit 0
+          fi
+          SEMVER="${TAG#v}"
+          ASSET="dist/ru.valentderah.current-media-${SEMVER}.streamDeckPlugin"
+          cp dist/ru.valentderah.current-media.streamDeckPlugin "$ASSET"
+          NOTES="$(git tag -l --format='%(contents)' "$TAG" | sed '/^-----BEGIN PGP SIGNATURE-----$/,$d' | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')"
+          if [[ -z "${NOTES// }" ]]; then
+            NOTES="Plugin ${TAG}"
+          fi
+          gh release create "$TAG" "$ASSET" --title "$TAG" --notes "$NOTES" --fail-on-existing
