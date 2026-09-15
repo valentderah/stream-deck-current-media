@@ -33,4 +33,11 @@ public class MediaClientTimeoutsTests
 
         Assert.True(slowest < options.PollInterval);
     }
+
+    [Fact]
+    public void ElectronFriendlyBudgets()
+    {
+        Assert.Equal(TimeSpan.FromSeconds(5), MediaClientTimeouts.SessionOperation);
+        Assert.Equal(TimeSpan.FromSeconds(8), new RefreshLoopOptions().PollInterval);
+    }
 }

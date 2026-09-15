@@ -6,7 +6,7 @@ internal sealed class RefreshLoopOptions
 {
     public TimeSpan QuietPeriod { get; init; } = TimeSpan.FromMilliseconds(200);
     public TimeSpan MaxDelay { get; init; } = TimeSpan.FromMilliseconds(750);
-    public TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(5);
+    public TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(8);
 }
 
 internal sealed class RefreshLoop : IDisposable

@@ -21,7 +21,9 @@ public sealed class WindowsMediaManager : IMediaManager
 {
     private const int MaxThumbnailAttempts = 3;
     private const int MaxConsecutiveCallFailures = 3;
-    private const long PropertiesTtlMs = 5_000;
+    private const long PropertiesTtlMs = 60_000;
+    private static readonly TimeSpan RestartLookback = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan RestartThreshold = TimeSpan.FromSeconds(1.5);
     private const uint MaxThumbnailBytes = 12 * 1024 * 1024;
     private const char SignatureSeparator = '\u001f';
 
@@ -454,6 +456,12 @@ public sealed class WindowsMediaManager : IMediaManager
             return InactiveState();
         }
 
+        var timeline = TryReadTimeline(entry);
+        if (timeline != null)
+        {
+            DetectTrackChange(entry, timeline, playback.PlaybackStatus);
+        }
+
         var track = await EnsureTrackAsync(entry, token).ConfigureAwait(false);
         if (track == null || !track.HasText)
         {
@@ -482,7 +490,7 @@ public sealed class WindowsMediaManager : IMediaManager
             IsActive = true
         };
 
-        ApplyTimeline(entry, playback.PlaybackStatus, state);
+        ApplyTimeline(timeline, playback.PlaybackStatus, state);
 
         state.AppIconBase64 = await WindowsAppIconProcessor
             .GetAppIconBase64Async(entry.Id, entry.SourceAppInfo, MediaClientTimeouts.AppIcon, token)
@@ -589,19 +597,39 @@ public sealed class WindowsMediaManager : IMediaManager
         return read == null ? string.Empty : Convert.ToBase64String(read.ToArray());
     }
 
-    private void ApplyTimeline(SessionEntry entry, SmtcPlaybackStatus status, MediaState state)
+    private SmtcTimeline? TryReadTimeline(SessionEntry entry)
     {
-        SmtcTimeline? timeline;
         try
         {
-            timeline = entry.Session.GetTimelineProperties();
+            return entry.Session.GetTimelineProperties();
         }
         catch (Exception ex)
         {
             Logger.Instance.LogMessage(TracingLevel.WARN, $"Failed to read timeline of {entry.Id}: {ex.Message}");
-            return;
+            return null;
+        }
+    }
+
+    private static void DetectTrackChange(SessionEntry entry, SmtcTimeline timeline, SmtcPlaybackStatus status)
+    {
+        var duration = timeline.EndTime;
+        var position = GetEffectivePlaybackPosition(timeline, status);
+
+        if (entry.LastDuration != TimeSpan.Zero && duration != entry.LastDuration)
+        {
+            entry.PropertiesStale = true;
+        }
+        else if (entry.LastPosition > RestartLookback && position <= RestartThreshold)
+        {
+            entry.PropertiesStale = true;
         }
 
+        entry.LastDuration = duration;
+        entry.LastPosition = position;
+    }
+
+    private static void ApplyTimeline(SmtcTimeline? timeline, SmtcPlaybackStatus status, MediaState state)
+    {
         if (timeline == null)
         {
             return;
@@ -821,16 +849,7 @@ public sealed class WindowsMediaManager : IMediaManager
         string name,
         CancellationToken token,
         bool countsTowardManagerHealth) =>
-        InvokeCoreAsync(
-            () =>
-            {
-                var operation = start();
-                return (operation, operation.AsTask());
-            },
-            timeout,
-            name,
-            token,
-            countsTowardManagerHealth);
+        InvokeCoreAsync(() => start().AsTask(), timeout, name, token, countsTowardManagerHealth);
 
     private Task<T?> InvokeAsync<T, TProgress>(
         Func<IAsyncOperationWithProgress<T, TProgress>> start,
@@ -838,19 +857,10 @@ public sealed class WindowsMediaManager : IMediaManager
         string name,
         CancellationToken token,
         bool countsTowardManagerHealth) =>
-        InvokeCoreAsync(
-            () =>
-            {
-                var operation = start();
-                return (operation, operation.AsTask());
-            },
-            timeout,
-            name,
-            token,
-            countsTowardManagerHealth);
+        InvokeCoreAsync(() => start().AsTask(), timeout, name, token, countsTowardManagerHealth);
 
     private async Task<T?> InvokeCoreAsync<T>(
-        Func<(IAsyncInfo Operation, Task<T> Task)> start,
+        Func<Task<T>> start,
         TimeSpan timeout,
         string name,
         CancellationToken token,
@@ -861,11 +871,10 @@ public sealed class WindowsMediaManager : IMediaManager
             return default;
         }
 
-        IAsyncInfo operation;
         Task<T> pending;
         try
         {
-            (operation, pending) = start();
+            pending = start();
         }
         catch (Exception ex)
         {
@@ -883,7 +892,7 @@ public sealed class WindowsMediaManager : IMediaManager
         }
         catch (TimeoutException)
         {
-            Abandon(operation, pending, name);
+            Abandon(pending);
             Logger.Instance.LogMessage(
                 TracingLevel.WARN,
                 $"{name} timed out after {timeout.TotalMilliseconds:F0}ms");
@@ -896,7 +905,7 @@ public sealed class WindowsMediaManager : IMediaManager
         }
         catch (OperationCanceledException)
         {
-            Abandon(operation, pending, name);
+            Abandon(pending);
             return default;
         }
         catch (Exception ex)
@@ -906,23 +915,14 @@ public sealed class WindowsMediaManager : IMediaManager
         }
     }
 
-    private static void Abandon<T>(IAsyncInfo operation, Task<T> pending, string name)
+    private static void Abandon<T>(Task<T> pending)
     {
+        // Do not call IAsyncInfo.Cancel(): Chromium SMTC deadlocks its media thread on cancel.
         pending.ContinueWith(
             static task => _ = task.Exception,
             CancellationToken.None,
             TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
-
-        try
-        {
-            operation.Cancel();
-        }
-        catch (Exception ex)
-        {
-            // A disconnected media app can fail the cancel itself; the operation is dropped either way.
-            Logger.Instance.LogMessage(TracingLevel.WARN, $"Failed to cancel {name}: {ex.Message}");
-        }
     }
 
     private void NoteCallFailure(string name, Exception ex, bool countsTowardManagerHealth = true)
@@ -1054,6 +1054,8 @@ public sealed class WindowsMediaManager : IMediaManager
         public object? SourceAppInfo { get; }
         public SmtcPlaybackInfo? Playback { get; set; }
         public TrackInfo? Track { get; set; }
+        public TimeSpan LastDuration { get; set; }
+        public TimeSpan LastPosition { get; set; }
         public bool PropertiesStale { get; set; } = true;
 
         // Some sources never raise MediaPropertiesChanged, so a cached track also expires on its own.
