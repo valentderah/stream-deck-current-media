@@ -1,0 +1,35 @@
+name: Setup CI
+description: Install .NET, Node, Stream Deck CLI, and restore caches
+
+runs:
+  using: composite
+  steps:
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: "8.0.x"
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: lts/*
+
+    - name: Cache NuGet
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+        restore-keys: |
+          nuget-${{ runner.os }}-
+
+    - name: Cache npm
+      uses: actions/cache@v4
+      with:
+        path: ~/.npm
+        key: npm-${{ runner.os }}-elgato-cli
+        restore-keys: |
+          npm-${{ runner.os }}-
+
+    - name: Install Stream Deck CLI
+      shell: bash
+      run: npm install -g @elgato/cli
