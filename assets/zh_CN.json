@@ -20,11 +20,11 @@
 	},
 	"ru.valentderah.current-media.media-forward": {
 		"Name": "快进",
-		"Tooltip": "快进 10 秒。"
+		"Tooltip": "按设定的秒数快进。"
 	},
 	"ru.valentderah.current-media.media-backward": {
 		"Name": "快退",
-		"Tooltip": "快退 10 秒。"
+		"Tooltip": "按设定的秒数快退。"
 	},
 	"Localization": {
 		"ImageMode": "图片模式",
@@ -44,14 +44,19 @@
 		"PlayPause": "播放/暂停",
 		"NextTrack": "下一曲",
 		"PreviousTrack": "上一曲",
-		"SeekForward": "快进 (+10秒)",
-		"SeekBackward": "快退 (-10秒)",
+		"SeekForward": "快进",
+		"SeekBackward": "快退",
+		"Seconds": "秒",
 		"None": "无",
 		"ArtistAndTitle": "艺术家和标题",
 		"ArtistOnly": "仅艺术家",
 		"TitleOnly": "仅标题",
 		"AppIconOnly": "仅应用图标",
 		"StatusOnly": "仅状态",
-		"AppIconAndStatus": "应用图标和状态"
+		"AppIconAndStatus": "应用图标和状态",
+		"IdleBackground": "空闲背景",
+		"ChooseImage": "选择…",
+		"ClearImage": "清除",
+		"NoFile": "无文件"
 	}
 }

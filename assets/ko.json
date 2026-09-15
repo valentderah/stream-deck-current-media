@@ -20,11 +20,11 @@
 	},
 	"ru.valentderah.current-media.media-forward": {
 		"Name": "앞으로 감기",
-		"Tooltip": "10초 앞으로 감습니다."
+		"Tooltip": "설정한 초만큼 앞으로 감습니다."
 	},
 	"ru.valentderah.current-media.media-backward": {
 		"Name": "뒤로 감기",
-		"Tooltip": "10초 뒤로 감습니다."
+		"Tooltip": "설정한 초만큼 뒤로 감습니다."
 	},
 	"Localization": {
 		"ImageMode": "이미지 모드",
@@ -44,14 +44,19 @@
 		"PlayPause": "재생/일시정지",
 		"NextTrack": "다음 트랙",
 		"PreviousTrack": "이전 트랙",
-		"SeekForward": "앞으로 감기 (+10초)",
-		"SeekBackward": "뒤로 감기 (-10초)",
+		"SeekForward": "앞으로 감기",
+		"SeekBackward": "뒤로 감기",
+		"Seconds": "초",
 		"None": "없음",
 		"ArtistAndTitle": "아티스트 및 제목",
 		"ArtistOnly": "아티스트만",
 		"TitleOnly": "제목만",
 		"AppIconOnly": "앱 아이콘만",
 		"StatusOnly": "상태만",
-		"AppIconAndStatus": "앱 아이콘 및 상태"
+		"AppIconAndStatus": "앱 아이콘 및 상태",
+		"IdleBackground": "대기 배경",
+		"ChooseImage": "선택…",
+		"ClearImage": "지우기",
+		"NoFile": "파일 없음"
 	}
 }

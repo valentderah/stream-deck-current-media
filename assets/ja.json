@@ -20,11 +20,11 @@
 	},
 	"ru.valentderah.current-media.media-forward": {
 		"Name": "早送り",
-		"Tooltip": "10秒早送りします。"
+		"Tooltip": "設定した秒数だけ早送りします。"
 	},
 	"ru.valentderah.current-media.media-backward": {
 		"Name": "巻き戻し",
-		"Tooltip": "10秒巻き戻します。"
+		"Tooltip": "設定した秒数だけ巻き戻します。"
 	},
 	"Localization": {
 		"ImageMode": "画像モード",
@@ -44,14 +44,19 @@
 		"PlayPause": "再生/一時停止",
 		"NextTrack": "次のトラック",
 		"PreviousTrack": "前のトラック",
-		"SeekForward": "早送り (+10秒)",
-		"SeekBackward": "巻き戻し (-10秒)",
+		"SeekForward": "早送り",
+		"SeekBackward": "巻き戻し",
+		"Seconds": "秒",
 		"None": "なし",
 		"ArtistAndTitle": "アーティストとタイトル",
 		"ArtistOnly": "アーティストのみ",
 		"TitleOnly": "タイトルのみ",
 		"AppIconOnly": "アプリアイコンのみ",
 		"StatusOnly": "ステータスのみ",
-		"AppIconAndStatus": "アプリアイコンとステータス"
+		"AppIconAndStatus": "アプリアイコンとステータス",
+		"IdleBackground": "待機背景",
+		"ChooseImage": "選択…",
+		"ClearImage": "クリア",
+		"NoFile": "ファイルなし"
 	}
 }
