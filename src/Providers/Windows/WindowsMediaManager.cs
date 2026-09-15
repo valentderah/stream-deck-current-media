@@ -95,15 +95,7 @@ public sealed class WindowsMediaManager : IMediaManager
         }
     }
 
-    public async Task SeekForwardAsync()
-    {
-        await SeekAsync(TimeSpan.FromSeconds(10));
-    }
-
-    public async Task SeekBackwardAsync()
-    {
-        await SeekAsync(TimeSpan.FromSeconds(-10));
-    }
+    public Task SeekByAsync(int offsetSeconds) => SeekAsync(TimeSpan.FromSeconds(offsetSeconds));
 
     public void Dispose()
     {

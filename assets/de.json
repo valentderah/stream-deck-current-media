@@ -20,11 +20,11 @@
 	},
 	"ru.valentderah.current-media.media-forward": {
 		"Name": "Vorspulen",
-		"Tooltip": "10 Sekunden vorspulen."
+		"Tooltip": "Vorspulen um die eingestellte Anzahl Sekunden."
 	},
 	"ru.valentderah.current-media.media-backward": {
 		"Name": "Zurückspulen",
-		"Tooltip": "10 Sekunden zurückspulen."
+		"Tooltip": "Zurückspulen um die eingestellte Anzahl Sekunden."
 	},
 	"Localization": {
 		"ImageMode": "Bildmodus",
@@ -44,8 +44,9 @@
 		"PlayPause": "Wiedergabe/Pause",
 		"NextTrack": "Nächster Titel",
 		"PreviousTrack": "Vorheriger Titel",
-		"SeekForward": "Vorspulen (+10s)",
-		"SeekBackward": "Zurückspulen (-10s)",
+		"SeekForward": "Vorspulen",
+		"SeekBackward": "Zurückspulen",
+		"Seconds": "Sekunden",
 		"None": "Keine",
 		"ArtistAndTitle": "Interpret und Titel",
 		"ArtistOnly": "Nur Interpret",

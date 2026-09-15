@@ -7,6 +7,19 @@
 	var settings = {};
 	var translations = {};
 
+	function parseNumberSetting(el, raw) {
+		var parsed = parseInt(raw, 10);
+		var fallback = parseInt(el.getAttribute("data-default"), 10);
+		if (isNaN(fallback)) fallback = 0;
+		if (isNaN(parsed)) return fallback;
+		var minAttr = el.getAttribute("min");
+		if (minAttr !== null && minAttr !== "") {
+			var min = parseInt(minAttr, 10);
+			if (!isNaN(min) && parsed < min) return fallback;
+		}
+		return parsed;
+	}
+
 	function getDefaults() {
 		var defaults = {};
 		document.querySelectorAll("[data-setting][data-default]").forEach(function (el) {
@@ -14,8 +27,8 @@
 			var value = el.getAttribute("data-default");
 			if (el.type === "checkbox") {
 				defaults[key] = value === "true";
-			} else if (el.type === "range") {
-				defaults[key] = parseInt(value, 10);
+			} else if (el.type === "range" || el.type === "number") {
+				defaults[key] = parseNumberSetting(el, value);
 			} else {
 				defaults[key] = value;
 			}
@@ -23,6 +36,18 @@
 		defaults.idleImage = "";
 		defaults.idleImageName = "";
 		return defaults;
+	}
+
+	function updateConditionalVisibility() {
+		document.querySelectorAll("[data-visible-when]").forEach(function (row) {
+			var spec = row.getAttribute("data-visible-when");
+			var eq = spec.indexOf("=");
+			if (eq === -1) return;
+			var key = spec.slice(0, eq);
+			var values = spec.slice(eq + 1).split(",");
+			var current = settings[key];
+			row.style.display = values.indexOf(String(current)) === -1 ? "none" : "flex";
+		});
 	}
 
 	window.connectElgatoStreamDeckSocket = function (port, uuid, event, info, actionInfo) {
@@ -90,6 +115,7 @@
 	}
 
 	function applySettings() {
+		var didNormalize = false;
 		document.querySelectorAll("[data-setting]").forEach(function (el) {
 			var key = el.getAttribute("data-setting");
 			var value = settings[key];
@@ -97,6 +123,13 @@
 
 			if (el.type === "checkbox") {
 				el.checked = value === true || value === "true";
+			} else if (el.type === "number") {
+				var normalized = parseNumberSetting(el, value);
+				el.value = normalized;
+				if (Number(value) !== normalized) {
+					settings[key] = normalized;
+					didNormalize = true;
+				}
 			} else {
 				el.value = value;
 			}
@@ -115,6 +148,9 @@
 				nameEl.textContent = translations.NoFile;
 			}
 		}
+
+		updateConditionalVisibility();
+		if (didNormalize) sendSettings();
 	}
 
 	function bindSettingListeners() {
@@ -122,7 +158,17 @@
 			var eventType = el.type === "range" ? "input" : "change";
 			el.addEventListener(eventType, function () {
 				var key = el.getAttribute("data-setting");
-				var val = el.type === "checkbox" ? el.checked : (el.type === "range" ? parseInt(el.value, 10) : el.value);
+				var val;
+				if (el.type === "checkbox") {
+					val = el.checked;
+				} else if (el.type === "range") {
+					val = parseInt(el.value, 10);
+				} else if (el.type === "number") {
+					val = parseNumberSetting(el, el.value);
+					el.value = val;
+				} else {
+					val = el.value;
+				}
 				settings[key] = val;
 
 				if (el.type === "range") {
@@ -130,6 +176,7 @@
 					if (label) label.textContent = val;
 				}
 
+				updateConditionalVisibility();
 				sendSettings();
 			});
 		});
@@ -138,6 +185,7 @@
 	function bindIdleImageControls() {
 		var chooseBtn = document.getElementById("idleImageChoose");
 		var clearBtn = document.getElementById("idleImageClear");
+		if (!chooseBtn || !clearBtn) return;
 
 		chooseBtn.addEventListener("click", function () {
 			sendToPlugin({ event: "pickIdleImage" });

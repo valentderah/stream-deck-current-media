@@ -20,11 +20,11 @@
 	},
 	"ru.valentderah.current-media.media-forward": {
 		"Name": "Seek Forward",
-		"Tooltip": "Seek forward 10 seconds."
+		"Tooltip": "Seek forward by the configured number of seconds."
 	},
 	"ru.valentderah.current-media.media-backward": {
 		"Name": "Seek Backward",
-		"Tooltip": "Seek backward 10 seconds."
+		"Tooltip": "Seek backward by the configured number of seconds."
 	},
 	"Localization": {
 		"ImageMode": "Image Mode",
@@ -44,8 +44,9 @@
 		"PlayPause": "Play/Pause",
 		"NextTrack": "Next Track",
 		"PreviousTrack": "Previous Track",
-		"SeekForward": "Seek Forward (+10s)",
-		"SeekBackward": "Seek Backward (-10s)",
+		"SeekForward": "Seek Forward",
+		"SeekBackward": "Seek Backward",
+		"Seconds": "Seconds",
 		"None": "None",
 		"ArtistAndTitle": "Artist and Title",
 		"ArtistOnly": "Artist Only",

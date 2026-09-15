@@ -68,7 +68,8 @@
 			"Name": "Seek Forward",
 			"UUID": "ru.valentderah.current-media.media-forward",
 			"Icon": "imgs/actions/media/forward",
-			"Tooltip": "Seek forward 10 seconds.",
+			"Tooltip": "Seek forward by the configured number of seconds.",
+			"PropertyInspectorPath": "ui/seek.html",
 			"Controllers": [
 				"Keypad"
 			],
@@ -83,7 +84,8 @@
 			"Name": "Seek Backward",
 			"UUID": "ru.valentderah.current-media.media-backward",
 			"Icon": "imgs/actions/media/backward",
-			"Tooltip": "Seek backward 10 seconds.",
+			"Tooltip": "Seek backward by the configured number of seconds.",
+			"PropertyInspectorPath": "ui/seek.html",
 			"Controllers": [
 				"Keypad"
 			],

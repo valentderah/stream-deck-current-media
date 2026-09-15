@@ -20,11 +20,11 @@
 	},
 	"ru.valentderah.current-media.media-forward": {
 		"Name": "Avanzar",
-		"Tooltip": "Avanzar 10 segundos."
+		"Tooltip": "Avanzar el número de segundos configurado."
 	},
 	"ru.valentderah.current-media.media-backward": {
 		"Name": "Retroceder",
-		"Tooltip": "Retroceder 10 segundos."
+		"Tooltip": "Retroceder el número de segundos configurado."
 	},
 	"Localization": {
 		"ImageMode": "Modo de imagen",
@@ -44,8 +44,9 @@
 		"PlayPause": "Reproducir/Pausar",
 		"NextTrack": "Siguiente pista",
 		"PreviousTrack": "Pista anterior",
-		"SeekForward": "Avanzar (+10s)",
-		"SeekBackward": "Retroceder (-10s)",
+		"SeekForward": "Avanzar",
+		"SeekBackward": "Retroceder",
+		"Seconds": "Segundos",
 		"None": "Ninguno",
 		"ArtistAndTitle": "Artista y título",
 		"ArtistOnly": "Solo artista",

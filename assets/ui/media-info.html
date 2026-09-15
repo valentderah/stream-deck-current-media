@@ -34,10 +34,16 @@
                 <option value="toggle" data-i18n="PlayPause">Play/Pause</option>
                 <option value="next" data-i18n="NextTrack">Next Track</option>
                 <option value="previous" data-i18n="PreviousTrack">Previous Track</option>
-                <option value="forward" data-i18n="SeekForward">Seek Forward (+10s)</option>
-                <option value="backward" data-i18n="SeekBackward">Seek Backward (-10s)</option>
+                <option value="forward" data-i18n="SeekForward">Seek Forward</option>
+                <option value="backward" data-i18n="SeekBackward">Seek Backward</option>
                 <option value="none" data-i18n="None">None</option>
             </select>
+        </div>
+
+        <div class="sdpi-item" data-visible-when="action=forward,backward">
+            <label class="sdpi-item-label" data-i18n="Seconds">Seconds</label>
+            <input class="sdpi-item-value" type="number" min="1" step="1"
+                   data-setting="seconds" data-default="10" />
         </div>
 
         <div class="sdpi-item">

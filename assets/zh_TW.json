@@ -20,11 +20,11 @@
 	},
 	"ru.valentderah.current-media.media-forward": {
 		"Name": "快進",
-		"Tooltip": "快進 10 秒。"
+		"Tooltip": "依設定的秒數快進。"
 	},
 	"ru.valentderah.current-media.media-backward": {
 		"Name": "快退",
-		"Tooltip": "快退 10 秒。"
+		"Tooltip": "依設定的秒數快退。"
 	},
 	"Localization": {
 		"ImageMode": "圖片模式",
@@ -44,8 +44,9 @@
 		"PlayPause": "播放/暫停",
 		"NextTrack": "下一曲",
 		"PreviousTrack": "上一曲",
-		"SeekForward": "快進 (+10秒)",
-		"SeekBackward": "快退 (-10秒)",
+		"SeekForward": "快進",
+		"SeekBackward": "快退",
+		"Seconds": "秒",
 		"None": "無",
 		"ArtistAndTitle": "演出者與標題",
 		"ArtistOnly": "僅演出者",

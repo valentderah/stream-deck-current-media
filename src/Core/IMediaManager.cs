@@ -8,6 +8,5 @@ public interface IMediaManager : IDisposable
     Task PlayPauseAsync();
     Task NextAsync();
     Task PreviousAsync();
-    Task SeekForwardAsync();
-    Task SeekBackwardAsync();
+    Task SeekByAsync(int offsetSeconds);
 }

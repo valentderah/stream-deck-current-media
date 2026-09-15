@@ -43,6 +43,9 @@ public class NowPlayingAction : KeypadBase
         [JsonConverter(typeof(StringEnumConverter))]
         public CropMode CropMode { get; set; } = CropMode.Square;
 
+        [JsonProperty(PropertyName = "seconds")]
+        public int Seconds { get; set; } = SeekSeconds.Default;
+
         [JsonProperty(PropertyName = "idleImage")]
         public string IdleImage { get; set; } = "";
 
@@ -136,6 +139,7 @@ public class NowPlayingAction : KeypadBase
     {
         try
         {
+            var seekSeconds = SeekSeconds.Normalize(_settings.Seconds);
             switch (_settings.Action)
             {
                 case ActionType.Toggle:
@@ -148,11 +152,18 @@ public class NowPlayingAction : KeypadBase
                     await MediaManagerProvider.Instance.PreviousAsync();
                     break;
                 case ActionType.Forward:
-                    await MediaManagerProvider.Instance.SeekForwardAsync();
+                    await MediaManagerProvider.Instance.SeekByAsync(seekSeconds);
                     break;
                 case ActionType.Backward:
-                    await MediaManagerProvider.Instance.SeekBackwardAsync();
+                    await MediaManagerProvider.Instance.SeekByAsync(-seekSeconds);
                     break;
+                case ActionType.None:
+                    break;
+                default:
+                {
+                    ActionType unreachable = _settings.Action;
+                    throw new InvalidOperationException($"Unhandled action: {unreachable}");
+                }
             }
         }
         catch (Exception ex)

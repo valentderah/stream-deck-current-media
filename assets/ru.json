@@ -20,11 +20,11 @@
 	},
 	"ru.valentderah.current-media.media-forward": {
 		"Name": "Перемотка вперёд",
-		"Tooltip": "Перемотать вперёд на 10 секунд."
+		"Tooltip": "Перемотать вперёд на заданное число секунд."
 	},
 	"ru.valentderah.current-media.media-backward": {
 		"Name": "Перемотка назад",
-		"Tooltip": "Перемотать назад на 10 секунд."
+		"Tooltip": "Перемотать назад на заданное число секунд."
 	},
 	"Localization": {
 		"ImageMode": "Режим изображения",
@@ -44,8 +44,9 @@
 		"PlayPause": "Воспроизведение/Пауза",
 		"NextTrack": "Следующий трек",
 		"PreviousTrack": "Предыдущий трек",
-		"SeekForward": "Перемотка вперёд (+10с)",
-		"SeekBackward": "Перемотка назад (-10с)",
+		"SeekForward": "Перемотка вперёд",
+		"SeekBackward": "Перемотка назад",
+		"Seconds": "Секунды",
 		"None": "Нет",
 		"ArtistAndTitle": "Исполнитель и название",
 		"ArtistOnly": "Только исполнитель",

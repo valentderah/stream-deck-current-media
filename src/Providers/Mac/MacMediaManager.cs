@@ -8,7 +8,6 @@ namespace CurrentMedia.Mac;
 public sealed class MacMediaManager : IMediaManager
 {
     private const int MaxCrashRetries = 3;
-    private const int SeekStepSeconds = 10;
     private const int StreamDebounceMs = 250;
 
     private const int CommandTogglePlayPause = 2;
@@ -53,9 +52,11 @@ public sealed class MacMediaManager : IMediaManager
 
     public Task PreviousAsync() => RunAdapterCommandAsync("send", CommandPreviousTrack.ToString());
 
-    public Task SeekForwardAsync() => SeekByAsync(SeekStepSeconds);
-
-    public Task SeekBackwardAsync() => SeekByAsync(-SeekStepSeconds);
+    public Task SeekByAsync(int offsetSeconds)
+    {
+        var targetMicros = (long)Math.Max(0, (_lastElapsedTime + offsetSeconds) * 1_000_000);
+        return RunAdapterCommandAsync("seek", targetMicros.ToString());
+    }
 
     public void Dispose()
     {
@@ -365,12 +366,6 @@ public sealed class MacMediaManager : IMediaManager
                 _commandSemaphore.Release();
             }
         });
-    }
-
-    private Task SeekByAsync(int offsetSeconds)
-    {
-        var targetMicros = (long)Math.Max(0, (_lastElapsedTime + offsetSeconds) * 1_000_000);
-        return RunAdapterCommandAsync("seek", targetMicros.ToString());
     }
 
     private void NotifyInactive()
