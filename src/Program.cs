@@ -6,6 +6,14 @@ class Program
 {
     static void Main(string[] args)
     {
-        SDWrapper.Run(args);
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => MediaManagerProvider.Shutdown();
+        try
+        {
+            SDWrapper.Run(args);
+        }
+        finally
+        {
+            MediaManagerProvider.Shutdown();
+        }
     }
 }

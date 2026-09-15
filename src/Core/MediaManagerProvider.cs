@@ -3,7 +3,18 @@ namespace CurrentMedia;
 public static class MediaManagerProvider
 {
     private static readonly Lazy<IMediaManager> _instance = new(CreateInstance);
+
     public static IMediaManager Instance => _instance.Value;
+
+    public static void Shutdown()
+    {
+        if (!_instance.IsValueCreated)
+        {
+            return;
+        }
+
+        _instance.Value.Dispose();
+    }
 
     private static IMediaManager CreateInstance()
     {

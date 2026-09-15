@@ -9,6 +9,7 @@ namespace CurrentMedia.Windows;
 public sealed class WindowsMediaManager : IMediaManager
 {
     private readonly SemaphoreSlim _updateSemaphore = new(1, 1);
+    private readonly CancellationTokenSource _shutdownCts = new();
     private GlobalSystemMediaTransportControlsSessionManager? _sessionManager;
     private readonly Dictionary<string, GlobalSystemMediaTransportControlsSession> _subscribedSessions = new();
     private GlobalSystemMediaTransportControlsSession? _lastActiveSession;
@@ -28,18 +29,92 @@ public sealed class WindowsMediaManager : IMediaManager
 
         try
         {
-            _sessionManager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
-            _sessionManager.CurrentSessionChanged += (_, _) => OnSessionChanged();
-            _sessionManager.SessionsChanged += (_, _) => OnSessionsChanged();
-            SubscribeToAllSessions(_sessionManager);
-            _isInitialized = true;
+            var request = GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask();
+            var wait = await AsyncWait.For(request, MediaClientTimeouts.SessionManagerRequest, _shutdownCts.Token)
+                .ConfigureAwait(false);
+            if (_disposed)
+            {
+                return;
+            }
 
+            switch (wait.Kind)
+            {
+                case WaitResultKind.Completed:
+                    break;
+                case WaitResultKind.TimedOut:
+                    Logger.Instance.LogMessage(TracingLevel.ERROR, "SMTC RequestAsync timed out");
+                    return;
+                case WaitResultKind.Canceled:
+                    return;
+                default:
+                {
+                    WaitResultKind unexpected = wait.Kind;
+                    throw new InvalidOperationException($"Unknown wait kind: {unexpected}");
+                }
+            }
+
+            if (wait.Value is null)
+            {
+                return;
+            }
+
+            if (_disposed)
+            {
+                return;
+            }
+
+            _sessionManager = wait.Value;
+            _sessionManager.CurrentSessionChanged += HandleCurrentSessionChanged;
+            _sessionManager.SessionsChanged += HandleSessionsChanged;
+            SubscribeToAllSessions(_sessionManager);
+            if (_disposed)
+            {
+                TearDownSubscriptions();
+                return;
+            }
+
+            _isInitialized = true;
             await UpdateAndNotifyAsync();
         }
         catch (Exception ex)
         {
             Logger.Instance.LogMessage(TracingLevel.ERROR, $"Failed to initialize WindowsMediaManager: {ex.Message}");
         }
+    }
+
+    private async Task<T?> AwaitSessionOpAsync<T>(Task<T> task, string operation)
+    {
+        var wait = await AsyncWait.For(task, MediaClientTimeouts.SessionOperation, _shutdownCts.Token)
+            .ConfigureAwait(false);
+        switch (wait.Kind)
+        {
+            case WaitResultKind.Completed:
+                return _disposed ? default : wait.Value;
+            case WaitResultKind.TimedOut:
+                Logger.Instance.LogMessage(TracingLevel.WARN, $"{operation} timed out");
+                return default;
+            case WaitResultKind.Canceled:
+                return default;
+            default:
+            {
+                WaitResultKind unexpected = wait.Kind;
+                throw new InvalidOperationException($"Unknown wait kind: {unexpected}");
+            }
+        }
+    }
+
+    private void HandleCurrentSessionChanged(
+        GlobalSystemMediaTransportControlsSessionManager sender,
+        CurrentSessionChangedEventArgs args)
+    {
+        OnSessionChanged();
+    }
+
+    private void HandleSessionsChanged(
+        GlobalSystemMediaTransportControlsSessionManager sender,
+        SessionsChangedEventArgs args)
+    {
+        OnSessionsChanged();
     }
 
     public async Task RequestUpdateAsync()
@@ -49,13 +124,20 @@ public sealed class WindowsMediaManager : IMediaManager
 
     public async Task PlayPauseAsync()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         try
         {
             var activeSession = await GetActiveSessionAsync();
-            if (activeSession != null)
+            if (activeSession == null)
             {
-                await activeSession.TryTogglePlayPauseAsync();
+                return;
             }
+
+            await AwaitSessionOpAsync(activeSession.TryTogglePlayPauseAsync().AsTask(), "TryTogglePlayPauseAsync");
         }
         catch (Exception ex)
         {
@@ -65,13 +147,20 @@ public sealed class WindowsMediaManager : IMediaManager
 
     public async Task NextAsync()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         try
         {
             var activeSession = await GetActiveSessionAsync();
-            if (activeSession != null)
+            if (activeSession == null)
             {
-                await activeSession.TrySkipNextAsync();
+                return;
             }
+
+            await AwaitSessionOpAsync(activeSession.TrySkipNextAsync().AsTask(), "TrySkipNextAsync");
         }
         catch (Exception ex)
         {
@@ -81,13 +170,20 @@ public sealed class WindowsMediaManager : IMediaManager
 
     public async Task PreviousAsync()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         try
         {
             var activeSession = await GetActiveSessionAsync();
-            if (activeSession != null)
+            if (activeSession == null)
             {
-                await activeSession.TrySkipPreviousAsync();
+                return;
             }
+
+            await AwaitSessionOpAsync(activeSession.TrySkipPreviousAsync().AsTask(), "TrySkipPreviousAsync");
         }
         catch (Exception ex)
         {
@@ -106,24 +202,87 @@ public sealed class WindowsMediaManager : IMediaManager
 
         _disposed = true;
 
+        try
+        {
+            _shutdownCts.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
         lock (_debounceLock)
         {
             _updateDebounceTimer?.Dispose();
             _updateDebounceTimer = null;
         }
 
+        TearDownSubscriptions();
+
+        try
+        {
+            _updateSemaphore.Dispose();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
+        try
+        {
+            _shutdownCts.Dispose();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    private void TearDownSubscriptions()
+    {
+        var manager = _sessionManager;
+        if (manager != null)
+        {
+            try
+            {
+                manager.CurrentSessionChanged -= HandleCurrentSessionChanged;
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogMessage(TracingLevel.WARN, $"Error unsubscribing CurrentSessionChanged: {ex.Message}");
+            }
+
+            try
+            {
+                manager.SessionsChanged -= HandleSessionsChanged;
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogMessage(TracingLevel.WARN, $"Error unsubscribing SessionsChanged: {ex.Message}");
+            }
+        }
+
         foreach (var session in _subscribedSessions.Values)
         {
-            session.MediaPropertiesChanged -= OnMediaPropertiesChanged;
-            session.PlaybackInfoChanged -= OnPlaybackInfoChanged;
+            try
+            {
+                session.MediaPropertiesChanged -= OnMediaPropertiesChanged;
+                session.PlaybackInfoChanged -= OnPlaybackInfoChanged;
+            }
+            catch (Exception ex)
+            {
+                Logger.Instance.LogMessage(TracingLevel.WARN, $"Error unsubscribing session: {ex.Message}");
+            }
         }
 
         _subscribedSessions.Clear();
-        _updateSemaphore.Dispose();
+        _sessionManager = null;
     }
 
     private void OnSessionsChanged()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         if (_sessionManager != null)
         {
             SubscribeToAllSessions(_sessionManager);
@@ -217,7 +376,18 @@ public sealed class WindowsMediaManager : IMediaManager
             return;
         }
 
-        await _updateSemaphore.WaitAsync();
+        try
+        {
+            await _updateSemaphore.WaitAsync(_shutdownCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
 
         try
         {
@@ -236,7 +406,13 @@ public sealed class WindowsMediaManager : IMediaManager
         }
         finally
         {
-            _updateSemaphore.Release();
+            try
+            {
+                _updateSemaphore.Release();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
         }
     }
 
@@ -260,7 +436,9 @@ public sealed class WindowsMediaManager : IMediaManager
 
             try
             {
-                mediaProperties = await activeSession.TryGetMediaPropertiesAsync();
+                mediaProperties = await AwaitSessionOpAsync(
+                    activeSession.TryGetMediaPropertiesAsync().AsTask(),
+                    "TryGetMediaPropertiesAsync");
             }
             catch (Exception ex)
             {
@@ -397,16 +575,34 @@ public sealed class WindowsMediaManager : IMediaManager
 
     private static MediaState InactiveState() => new() { IsActive = false };
 
-    private static async Task<string> GetThumbnailBase64Async(IRandomAccessStreamReference thumbnail)
+    private async Task<string> GetThumbnailBase64Async(IRandomAccessStreamReference thumbnail)
     {
         const int maxRetries = 3;
         const int retryDelayMs = 250;
 
         for (var attempt = 1; attempt <= maxRetries; attempt++)
         {
+            if (_disposed)
+            {
+                return string.Empty;
+            }
+
             try
             {
-                using var stream = await thumbnail.OpenReadAsync();
+                using var stream = await AwaitSessionOpAsync(
+                    thumbnail.OpenReadAsync().AsTask(),
+                    "thumbnail OpenReadAsync");
+                if (stream is null)
+                {
+                    if (_disposed || attempt >= maxRetries)
+                    {
+                        return string.Empty;
+                    }
+
+                    await Task.Delay(retryDelayMs);
+                    continue;
+                }
+
                 if (stream.Size == 0)
                 {
                     return string.Empty;
@@ -414,12 +610,30 @@ public sealed class WindowsMediaManager : IMediaManager
 
                 stream.Seek(0);
                 var buffer = new global::Windows.Storage.Streams.Buffer((uint)stream.Size);
-                await stream.ReadAsync(buffer, (uint)stream.Size, InputStreamOptions.None);
+                var read = await AwaitSessionOpAsync(
+                    stream.ReadAsync(buffer, (uint)stream.Size, InputStreamOptions.None).AsTask(),
+                    "thumbnail ReadAsync");
+                if (read is null)
+                {
+                    if (_disposed || attempt >= maxRetries)
+                    {
+                        return string.Empty;
+                    }
+
+                    await Task.Delay(retryDelayMs);
+                    continue;
+                }
+
                 return Convert.ToBase64String(buffer.ToArray());
             }
             catch (Exception ex)
             {
                 Logger.Instance.LogMessage(TracingLevel.WARN, $"Thumbnail read attempt {attempt}/{maxRetries} failed: {ex.Message}");
+                if (_disposed)
+                {
+                    return string.Empty;
+                }
+
                 if (attempt < maxRetries)
                 {
                     await Task.Delay(retryDelayMs);
@@ -491,9 +705,19 @@ public sealed class WindowsMediaManager : IMediaManager
 
     private async Task<GlobalSystemMediaTransportControlsSession?> GetActiveSessionAsync()
     {
+        if (_disposed)
+        {
+            return null;
+        }
+
         if (_sessionManager == null)
         {
             await InitializeAsync();
+        }
+
+        if (_disposed)
+        {
+            return null;
         }
 
         return _sessionManager != null ? FindBestMediaSession(_sessionManager) : null;
@@ -501,6 +725,11 @@ public sealed class WindowsMediaManager : IMediaManager
 
     private async Task SeekAsync(TimeSpan offset)
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         try
         {
             var activeSession = await GetActiveSessionAsync();
@@ -534,7 +763,9 @@ public sealed class WindowsMediaManager : IMediaManager
                 newPosition = timelineProperties.EndTime;
             }
 
-            await activeSession.TryChangePlaybackPositionAsync(newPosition.Ticks);
+            await AwaitSessionOpAsync(
+                activeSession.TryChangePlaybackPositionAsync(newPosition.Ticks).AsTask(),
+                "TryChangePlaybackPositionAsync");
         }
         catch (Exception ex)
         {
