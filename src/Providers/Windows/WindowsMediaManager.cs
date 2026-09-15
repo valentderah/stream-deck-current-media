@@ -28,6 +28,7 @@ public sealed class WindowsMediaManager : IMediaManager
     private const char SignatureSeparator = '\u001f';
 
     private readonly RefreshLoop _loop;
+    private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly CancellationTokenSource _shutdownCts = new();
     private readonly Dictionary<SmtcSession, SessionEntry> _entries = new(ReferenceEqualityComparer.Instance);
     private readonly List<SessionEntry> _ordered = new();
@@ -97,6 +98,14 @@ public sealed class WindowsMediaManager : IMediaManager
         _loop.Dispose();
         ReleaseManager("plugin shutdown");
         _managerReady.TrySetResult();
+
+        try
+        {
+            _gate.Dispose();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
 
         try
         {
@@ -871,47 +880,88 @@ public sealed class WindowsMediaManager : IMediaManager
             return default;
         }
 
-        Task<T> pending;
-        try
-        {
-            pending = start();
-        }
-        catch (Exception ex)
-        {
-            NoteCallFailure(name, ex, countsTowardManagerHealth);
-            return default;
-        }
-
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(token, _shutdownCts.Token);
 
+        bool acquired;
         try
         {
-            var result = await pending.WaitAsync(timeout, cts.Token).ConfigureAwait(false);
-            Interlocked.Exchange(ref _consecutiveCallFailures, 0);
-            return result;
-        }
-        catch (TimeoutException)
-        {
-            Abandon(pending);
-            Logger.Instance.LogMessage(
-                TracingLevel.WARN,
-                $"{name} timed out after {timeout.TotalMilliseconds:F0}ms");
-            if (countsTowardManagerHealth)
-            {
-                CountFailure();
-            }
-
-            return default;
+            acquired = await _gate.WaitAsync(timeout, cts.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
-            Abandon(pending);
             return default;
         }
-        catch (Exception ex)
+        catch (ObjectDisposedException)
         {
-            NoteCallFailure(name, ex, countsTowardManagerHealth);
             return default;
+        }
+
+        if (!acquired)
+        {
+            Logger.Instance.LogMessage(TracingLevel.WARN, $"{name} skipped: SMTC gate busy");
+            return default;
+        }
+
+        try
+        {
+            if (_disposed)
+            {
+                return default;
+            }
+
+            Task<T> pending;
+            try
+            {
+                pending = start();
+            }
+            catch (Exception ex)
+            {
+                NoteCallFailure(name, ex, countsTowardManagerHealth);
+                return default;
+            }
+
+            try
+            {
+                var result = await pending.WaitAsync(timeout, cts.Token).ConfigureAwait(false);
+                Interlocked.Exchange(ref _consecutiveCallFailures, 0);
+                return result;
+            }
+            catch (TimeoutException)
+            {
+                Abandon(pending);
+                Logger.Instance.LogMessage(
+                    TracingLevel.WARN,
+                    $"{name} timed out after {timeout.TotalMilliseconds:F0}ms");
+                if (countsTowardManagerHealth)
+                {
+                    CountFailure();
+                }
+
+                return default;
+            }
+            catch (OperationCanceledException)
+            {
+                Abandon(pending);
+                return default;
+            }
+            catch (Exception ex)
+            {
+                NoteCallFailure(name, ex, countsTowardManagerHealth);
+                return default;
+            }
+        }
+        finally
+        {
+            try
+            {
+                _gate.Release();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            catch (SemaphoreFullException)
+            {
+            }
         }
     }
 
