@@ -34,4 +34,4 @@ endif
 prod: build pack
 
 test:
-	dotnet test tests/CurrentMedia.Tests/CurrentMedia.Tests.csproj -f net8.0
+	dotnet test tests/CurrentMedia.Tests/CurrentMedia.Tests.csproj -f net8.0 -p:EnableWindowsTargeting=true
