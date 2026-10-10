@@ -57,6 +57,15 @@
 		"IdleBackground": "Fondo inactivo",
 		"ChooseImage": "Elegir…",
 		"ClearImage": "Borrar",
-		"NoFile": "Sin archivo"
+		"NoFile": "Sin archivo",
+		"DialRotate": "Girar",
+		"DialPressRotate": "Girar mientras se pulsa",
+		"DialPress": "Pulsar",
+		"TouchTap": "Toque",
+		"TouchLongTap": "Toque largo",
+		"SeekInTrack": "Avanzar en la pista",
+		"SwitchTrack": "Cambiar de pista",
+		"SecondsPerTick": "Segundos por paso",
+		"TapSeek": "Tocar la barra de progreso para saltar"
 	}
 }

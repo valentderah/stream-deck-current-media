@@ -57,6 +57,15 @@
 		"IdleBackground": "Leer-Hintergrund",
 		"ChooseImage": "Wählen…",
 		"ClearImage": "Löschen",
-		"NoFile": "Keine Datei"
+		"NoFile": "Keine Datei",
+		"DialRotate": "Drehen",
+		"DialPressRotate": "Gedrückt drehen",
+		"DialPress": "Drücken",
+		"TouchTap": "Tippen",
+		"TouchLongTap": "Langes Tippen",
+		"SeekInTrack": "Im Titel spulen",
+		"SwitchTrack": "Titel wechseln",
+		"SecondsPerTick": "Sekunden pro Raststufe",
+		"TapSeek": "Tippen auf den Fortschrittsbalken spult"
 	}
 }

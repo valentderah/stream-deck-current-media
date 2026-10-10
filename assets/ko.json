@@ -57,6 +57,15 @@
 		"IdleBackground": "대기 배경",
 		"ChooseImage": "선택…",
 		"ClearImage": "지우기",
-		"NoFile": "파일 없음"
+		"NoFile": "파일 없음",
+		"DialRotate": "회전",
+		"DialPressRotate": "누른 채 회전",
+		"DialPress": "누르기",
+		"TouchTap": "탭",
+		"TouchLongTap": "길게 탭",
+		"SeekInTrack": "트랙 내 탐색",
+		"SwitchTrack": "트랙 전환",
+		"SecondsPerTick": "한 칸당 초",
+		"TapSeek": "진행 막대를 탭하여 탐색"
 	}
 }

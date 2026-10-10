@@ -1,6 +1,6 @@
 {
 	"Name": "Current Media (Now Playing)",
-	"Version": "2.1.3.0",
+	"Version": "2.2.3.0",
 	"Author": "Valiantsin Dzerakh",
 	"Actions": [
 		{
@@ -10,8 +10,17 @@
 			"Tooltip": "Displays currently playing media.",
 			"PropertyInspectorPath": "ui/media-info.html",
 			"Controllers": [
-				"Keypad"
+				"Keypad",
+				"Encoder"
 			],
+			"Encoder": {
+				"layout": "layouts/now-playing.json",
+				"TriggerDescription": {
+					"Rotate": "Seek in Track",
+					"Push": "Play/Pause",
+					"Touch": "Play/Pause"
+				}
+			},
 			"States": [
 				{
 					"Image": "imgs/actions/media/info",

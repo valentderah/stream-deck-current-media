@@ -6,6 +6,7 @@
 	var actionUUID = null;
 	var settings = {};
 	var translations = {};
+	var controller = "Keypad";
 
 	function parseNumberSetting(el, raw) {
 		var parsed = parseInt(raw, 10);
@@ -20,9 +21,15 @@
 		return parsed;
 	}
 
+	function matchesController(el) {
+		var row = el.closest("[data-controller]");
+		return !row || row.getAttribute("data-controller") === controller;
+	}
+
 	function getDefaults() {
 		var defaults = {};
 		document.querySelectorAll("[data-setting][data-default]").forEach(function (el) {
+			if (!matchesController(el)) return;
 			var key = el.getAttribute("data-setting");
 			var value = el.getAttribute("data-default");
 			if (el.type === "checkbox") {
@@ -39,7 +46,11 @@
 	}
 
 	function updateConditionalVisibility() {
+		document.querySelectorAll("[data-controller]").forEach(function (row) {
+			if (!matchesController(row)) row.style.display = "none";
+		});
 		document.querySelectorAll("[data-visible-when]").forEach(function (row) {
+			if (!matchesController(row)) return;
 			var spec = row.getAttribute("data-visible-when");
 			var eq = spec.indexOf("=");
 			if (eq === -1) return;
@@ -56,6 +67,7 @@
 		const parsedInfo = JSON.parse(info);
 		const parsedActionInfo = JSON.parse(actionInfo);
 		actionUUID = parsedActionInfo.action;
+		controller = parsedActionInfo.payload.controller || "Keypad";
 		const lang = parsedInfo.application.language || "en";
 
 		settings = Object.assign({}, getDefaults(), parsedActionInfo.payload.settings || {});
@@ -117,6 +129,7 @@
 	function applySettings() {
 		var didNormalize = false;
 		document.querySelectorAll("[data-setting]").forEach(function (el) {
+			if (!matchesController(el)) return;
 			var key = el.getAttribute("data-setting");
 			var value = settings[key];
 			if (value === undefined) return;
@@ -155,6 +168,7 @@
 
 	function bindSettingListeners() {
 		document.querySelectorAll("[data-setting]").forEach(function (el) {
+			if (!matchesController(el)) return;
 			var eventType = el.type === "range" ? "input" : "change";
 			el.addEventListener(eventType, function () {
 				var key = el.getAttribute("data-setting");

@@ -57,6 +57,15 @@
 		"IdleBackground": "閒置背景",
 		"ChooseImage": "選擇…",
 		"ClearImage": "清除",
-		"NoFile": "無檔案"
+		"NoFile": "無檔案",
+		"DialRotate": "旋轉",
+		"DialPressRotate": "按住旋轉",
+		"DialPress": "按下",
+		"TouchTap": "輕觸",
+		"TouchLongTap": "長按",
+		"SeekInTrack": "曲目內跳轉",
+		"SwitchTrack": "切換曲目",
+		"SecondsPerTick": "每格秒數",
+		"TapSeek": "輕觸進度列跳轉"
 	}
 }

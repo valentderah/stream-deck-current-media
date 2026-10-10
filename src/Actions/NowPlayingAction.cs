@@ -1,108 +1,67 @@
 using System;
-using System.Threading;
 using System.Threading.Tasks;
 using BarRaider.SdTools;
+using BarRaider.SdTools.Payloads;
 using BarRaider.SdTools.Wrappers;
 using CurrentMedia.Imaging;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 
 namespace CurrentMedia.Actions;
 
 [PluginActionId("ru.valentderah.current-media.media-info")]
-public class NowPlayingAction : KeypadBase
+public class NowPlayingAction : KeyAndEncoderBase
 {
-    private class PluginSettings
-    {
-        public static PluginSettings CreateDefaultSettings()
-        {
-            return new PluginSettings();
-        }
+    private const string EncoderController = "Encoder";
+    private static readonly TimeSpan TrackStepInterval = TimeSpan.FromMilliseconds(250);
 
-        [JsonProperty(PropertyName = "textDisplayMode")]
-        [JsonConverter(typeof(StringEnumConverter))]
-        public TextDisplayMode TextDisplayMode { get; set; } = TextDisplayMode.Both;
-
-        [JsonProperty(PropertyName = "marqueeSpeed")]
-        public int MarqueeSpeed { get; set; } = 40;
-
-        [JsonProperty(PropertyName = "position")]
-        [JsonConverter(typeof(StringEnumConverter))]
-        public ImagePosition Position { get; set; } = ImagePosition.None;
-
-        [JsonProperty(PropertyName = "action")]
-        [JsonConverter(typeof(StringEnumConverter))]
-        public ActionType Action { get; set; } = ActionType.Toggle;
-
-        [JsonProperty(PropertyName = "overlayDisplayMode")]
-        [JsonConverter(typeof(StringEnumConverter))]
-        public OverlayDisplayMode OverlayDisplayMode { get; set; } = OverlayDisplayMode.None;
-
-        [JsonProperty(PropertyName = "cropMode")]
-        [JsonConverter(typeof(StringEnumConverter))]
-        public CropMode CropMode { get; set; } = CropMode.Square;
-
-        [JsonProperty(PropertyName = "seconds")]
-        public int Seconds { get; set; } = SeekSeconds.Default;
-
-        [JsonProperty(PropertyName = "idleImage")]
-        public string IdleImage { get; set; } = "";
-
-        [JsonProperty(PropertyName = "idleImageName")]
-        public string IdleImageName { get; set; } = "";
-    }
-
-    private readonly PluginSettings _settings;
-    private MediaState? _currentMediaState;
-    private int _marqueeOffset;
-    private Timer? _marqueeTimer;
-    private const double MaxIntervalMs = 1500.0;
-    private const double MinIntervalMs = 500.0;
-
-    private double GetMarqueeIntervalMs()
-    {
-        if (_settings.MarqueeSpeed <= 0) return 0;
-        var speed = Math.Clamp(_settings.MarqueeSpeed, 1, 100);
-        return MaxIntervalMs * Math.Pow(MinIntervalMs / MaxIntervalMs, speed / 100.0);
-    }
-
-    private void RestartMarqueeTimer()
-    {
-        _marqueeTimer?.Dispose();
-        _marqueeTimer = null;
-
-        if (_settings.MarqueeSpeed <= 0) return;
-
-        var interval = (int)Math.Round(GetMarqueeIntervalMs());
-        _marqueeTimer = new Timer(_ =>
-        {
-            _marqueeOffset++;
-            if (_currentMediaState != null)
-                _ = UpdateTitleAsync(_currentMediaState);
-        }, null, interval, interval);
-    }
+    private readonly NowPlayingSettings _settings;
+    private readonly NowPlayingKeyView? _keyView;
+    private readonly NowPlayingDialView? _dialView;
+    private readonly SeekAccumulator? _seek;
+    private readonly PluginStrings? _strings;
+    private readonly DialPressTracker _press = new();
+    private readonly TrackStepThrottle _trackSteps = new(TrackStepInterval, TimeProvider.System);
+    private readonly SeekSeries _seekSeries = new(TimelineTracker.HoldDuration, TimeProvider.System);
+    private MediaState _currentMediaState = new();
 
     public NowPlayingAction(ISDConnection connection, InitialPayload payload) : base(connection, payload)
     {
-        if (payload.Settings == null || payload.Settings.Count == 0)
+        _settings = NowPlayingSettings.FromPayload(payload.Settings);
+
+        if (payload.Controller == EncoderController)
         {
-            _settings = PluginSettings.CreateDefaultSettings();
+            _dialView = new NowPlayingDialView(
+                feedback => Connection.SetFeedbackAsync(feedback),
+                _settings,
+                TimeProvider.System);
+            _seek = new SeekAccumulator(
+                FlushDialSeekAsync,
+                onError: ex => Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error seeking from dial: {ex.Message}"));
+            _strings = PluginStrings.Load(
+                PluginStrings.FindPluginRoot(AppContext.BaseDirectory),
+                payload.DeviceInfo?.Application?.Language);
+            MediaManagerProvider.Instance.TimelineChanged += OnTimelineChanged;
+            _dialView.Start();
+            _ = SendTriggerDescriptionsAsync();
         }
         else
         {
-            _settings = payload.Settings.ToObject<PluginSettings>() ?? PluginSettings.CreateDefaultSettings();
+            _keyView = new NowPlayingKeyView(
+                image => Connection.SetImageAsync(image),
+                title => Connection.SetTitleAsync(title),
+                _settings);
+            _keyView.Start();
         }
 
         MediaManagerProvider.Instance.MediaStateChanged += OnMediaStateChanged;
         Connection.OnPropertyInspectorDidAppear += OnPropertyInspectorDidAppear;
         Connection.OnSendToPlugin += OnSendToPlugin;
-        RestartMarqueeTimer();
         _ = InitializeAndUpdateAsync();
     }
 
     private async Task InitializeAndUpdateAsync()
     {
+        await ShowAsync(_currentMediaState);
         await MediaManagerProvider.Instance.InitializeAsync();
         await MediaManagerProvider.Instance.RequestUpdateAsync();
     }
@@ -114,11 +73,13 @@ public class NowPlayingAction : KeypadBase
 
     public override void Dispose()
     {
-        _marqueeTimer?.Dispose();
-        _marqueeTimer = null;
         MediaManagerProvider.Instance.MediaStateChanged -= OnMediaStateChanged;
+        MediaManagerProvider.Instance.TimelineChanged -= OnTimelineChanged;
         Connection.OnPropertyInspectorDidAppear -= OnPropertyInspectorDidAppear;
         Connection.OnSendToPlugin -= OnSendToPlugin;
+        _seek?.Dispose();
+        _keyView?.Dispose();
+        _dialView?.Dispose();
         Logger.Instance.LogMessage(TracingLevel.INFO, "NowPlayingAction disposed");
     }
 
@@ -127,7 +88,7 @@ public class NowPlayingAction : KeypadBase
         try
         {
             _currentMediaState = state;
-            await UpdateDisplayAsync(state);
+            await ShowAsync(state);
         }
         catch (Exception ex)
         {
@@ -135,36 +96,29 @@ public class NowPlayingAction : KeypadBase
         }
     }
 
+    private async void OnTimelineChanged(object? sender, MediaTimeline timeline)
+    {
+        try
+        {
+            if (_dialView != null)
+            {
+                await _dialView.OnTimelineAsync(timeline);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error handling timeline change: {ex.Message}");
+        }
+    }
+
     public override async void KeyPressed(KeyPayload payload)
     {
         try
         {
-            var seekSeconds = SeekSeconds.Normalize(_settings.Seconds);
-            switch (_settings.Action)
-            {
-                case ActionType.Toggle:
-                    await MediaManagerProvider.Instance.PlayPauseAsync();
-                    break;
-                case ActionType.Next:
-                    await MediaManagerProvider.Instance.NextAsync();
-                    break;
-                case ActionType.Previous:
-                    await MediaManagerProvider.Instance.PreviousAsync();
-                    break;
-                case ActionType.Forward:
-                    await MediaManagerProvider.Instance.SeekByAsync(seekSeconds);
-                    break;
-                case ActionType.Backward:
-                    await MediaManagerProvider.Instance.SeekByAsync(-seekSeconds);
-                    break;
-                case ActionType.None:
-                    break;
-                default:
-                {
-                    ActionType unreachable = _settings.Action;
-                    throw new InvalidOperationException($"Unhandled action: {unreachable}");
-                }
-            }
+            await MediaCommand.RunAsync(
+                MediaManagerProvider.Instance,
+                _settings.Action,
+                SeekSeconds.Normalize(_settings.Seconds));
         }
         catch (Exception ex)
         {
@@ -174,16 +128,184 @@ public class NowPlayingAction : KeypadBase
 
     public override void KeyReleased(KeyPayload payload) { }
 
+    public override async void DialRotate(DialRotatePayload payload)
+    {
+        try
+        {
+            _press.Rotated();
+            var mode = payload.IsDialPressed ? _settings.DialPressRotate : _settings.DialRotate;
+            switch (mode)
+            {
+                case DialRotateMode.Seek:
+                    SeekFromDial(payload.Ticks * DialSeekSeconds);
+                    break;
+                case DialRotateMode.Track:
+                    var step = _trackSteps.Take(payload.Ticks);
+                    if (step > 0)
+                    {
+                        await MediaManagerProvider.Instance.NextAsync();
+                    }
+                    else if (step < 0)
+                    {
+                        await MediaManagerProvider.Instance.PreviousAsync();
+                    }
+
+                    break;
+                case DialRotateMode.None:
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error on dial rotate: {ex.Message}");
+        }
+    }
+
+    public override void DialDown(DialPayload payload)
+    {
+        _press.Down();
+    }
+
+    public override async void DialUp(DialPayload payload)
+    {
+        try
+        {
+            if (_press.Up())
+            {
+                await RunDialCommandAsync(_settings.DialPress);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error on dial press: {ex.Message}");
+        }
+    }
+
+    public override async void TouchPress(TouchpadPressPayload payload)
+    {
+        try
+        {
+            if (payload.IsLongPress)
+            {
+                await RunDialCommandAsync(_settings.TouchLongTap);
+                return;
+            }
+
+            var target = TouchZones.SeekTarget(payload.TapPosition, _settings.TapSeek, _dialView?.Duration ?? 0);
+            if (target == null)
+            {
+                await RunDialCommandAsync(_settings.TouchTap);
+                return;
+            }
+
+            if (_dialView != null)
+            {
+                _ = _dialView.JumpAsync(target.Value);
+            }
+
+            _seekSeries.Next();
+            await MediaManagerProvider.Instance.SeekToAsync(target.Value);
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error on touch: {ex.Message}");
+        }
+    }
+
     public override void OnTick() { }
 
     public override void ReceivedSettings(ReceivedSettingsPayload payload)
     {
         Tools.AutoPopulateSettings(_settings, payload.Settings);
-        RestartMarqueeTimer();
-        _ = UpdateDisplayAsync(_currentMediaState ?? new MediaState());
+        _ = ApplySettingsAsync();
     }
 
     public override void ReceivedGlobalSettings(ReceivedGlobalSettingsPayload payload) { }
+
+    private int DialSeekSeconds => SeekSeconds.Normalize(_settings.DialSeekSeconds, SeekSeconds.DialDefault);
+
+    private Task RunDialCommandAsync(ActionType action)
+    {
+        switch (action)
+        {
+            case ActionType.Forward:
+                SeekFromDial(DialSeekSeconds);
+                return Task.CompletedTask;
+            case ActionType.Backward:
+                SeekFromDial(-DialSeekSeconds);
+                return Task.CompletedTask;
+            default:
+                return MediaCommand.RunAsync(MediaManagerProvider.Instance, action, DialSeekSeconds);
+        }
+    }
+
+    private void SeekFromDial(int seconds)
+    {
+        if (_dialView == null || _seek == null || seconds == 0 || _dialView.Duration <= 0)
+        {
+            return;
+        }
+
+        _ = _dialView.ShiftAsync(seconds);
+        _seek.Add(seconds);
+    }
+
+    private Task FlushDialSeekAsync(int seconds)
+    {
+        if (_dialView != null && _seekSeries.Next())
+        {
+            return MediaManagerProvider.Instance.SeekToAsync(_dialView.Position);
+        }
+
+        return MediaManagerProvider.Instance.SeekByAsync(seconds);
+    }
+
+    private Task ShowAsync(MediaState state)
+    {
+        if (_dialView != null)
+        {
+            return _dialView.ShowAsync(state);
+        }
+
+        return _keyView?.ShowAsync(state) ?? Task.CompletedTask;
+    }
+
+    private async Task ApplySettingsAsync()
+    {
+        try
+        {
+            if (_dialView != null)
+            {
+                await _dialView.ApplySettingsAsync();
+                await SendTriggerDescriptionsAsync();
+            }
+            else if (_keyView != null)
+            {
+                await _keyView.ApplySettingsAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error applying settings: {ex.Message}");
+        }
+    }
+
+    private async Task SendTriggerDescriptionsAsync()
+    {
+        if (_strings == null)
+        {
+            return;
+        }
+
+        try
+        {
+            await TriggerDescriptions.SendAsync(Connection, TriggerDescriptions.Build(_settings, _strings));
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error sending trigger descriptions: {ex.Message}");
+        }
+    }
 
     private void OnSendToPlugin(object? sender, SDEventReceivedEventArgs<BarRaider.SdTools.Events.SendToPlugin> e)
     {
@@ -213,100 +335,11 @@ public class NowPlayingAction : KeypadBase
             _settings.IdleImage = png;
             _settings.IdleImageName = Path.GetFileName(path);
             await Connection.SetSettingsAsync(JObject.FromObject(_settings));
-            await UpdateDisplayAsync(_currentMediaState ?? new MediaState());
+            await ApplySettingsAsync();
         }
         catch (Exception ex)
         {
             Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error picking idle image: {ex.Message}");
-        }
-    }
-
-    private async Task UpdateDisplayAsync(MediaState state)
-    {
-        await UpdateImageAsync(state);
-        await UpdateTitleAsync(state);
-    }
-
-    private async Task UpdateImageAsync(MediaState state)
-    {
-        try
-        {
-            var hasMedia = state.HasMediaData;
-            if (!hasMedia)
-            {
-                if (!string.IsNullOrEmpty(_settings.IdleImage))
-                {
-                    await Connection.SetImageAsync(_settings.IdleImage);
-                    return;
-                }
-
-                var imageSize = (_settings.Position is ImagePosition.None or ImagePosition.NoImage)
-                    ? ImagePipeline.TargetSize
-                    : ImagePipeline.PartSize;
-                using var transparent = ImageExtensions.CreateTransparent(imageSize);
-                await Connection.SetImageAsync(ImageExtensions.ToPngDataUri(transparent));
-                return;
-            }
-
-            var dataUri = ImagePipeline.RenderForPosition(
-                state,
-                _settings.Position,
-                _settings.CropMode,
-                _settings.OverlayDisplayMode,
-                _settings.IdleImage);
-            await Connection.SetImageAsync(dataUri);
-        }
-        catch (Exception ex)
-        {
-            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error updating image: {ex.Message}");
-        }
-    }
-
-    private async Task UpdateTitleAsync(MediaState state)
-    {
-        try
-        {
-            if (!state.IsActive || !state.HasMediaData)
-            {
-                await Connection.SetTitleAsync(string.Empty);
-                return;
-            }
-
-            var parts = new System.Collections.Generic.List<string>();
-            var textMode = _settings.TextDisplayMode;
-
-            if (textMode == TextDisplayMode.None)
-            {
-                await Connection.SetTitleAsync(string.Empty);
-                return;
-            }
-
-            if ((textMode == TextDisplayMode.Both || textMode == TextDisplayMode.Title) && !string.IsNullOrEmpty(state.Title))
-            {
-                var title = _settings.MarqueeSpeed > 0
-                    ? MarqueeHelper.GetMarqueeText(state.Title, _marqueeOffset)
-                    : state.Title;
-                parts.Add(title);
-            }
-
-            if (textMode == TextDisplayMode.Both || textMode == TextDisplayMode.Artists)
-            {
-                var artistText = state.Artists.Count > 0 ? string.Join(", ", state.Artists) : state.Artist;
-                if (!string.IsNullOrEmpty(artistText))
-                {
-                    var artist = _settings.MarqueeSpeed > 0
-                        ? MarqueeHelper.GetMarqueeText(artistText, _marqueeOffset)
-                        : artistText;
-                    parts.Add(artist);
-                }
-            }
-
-            var displayText = string.Join("\n", parts);
-            await Connection.SetTitleAsync(displayText);
-        }
-        catch (Exception ex)
-        {
-            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error updating title: {ex.Message}");
         }
     }
 }

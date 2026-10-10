@@ -57,6 +57,15 @@
 		"IdleBackground": "待機背景",
 		"ChooseImage": "選択…",
 		"ClearImage": "クリア",
-		"NoFile": "ファイルなし"
+		"NoFile": "ファイルなし",
+		"DialRotate": "回転",
+		"DialPressRotate": "押しながら回転",
+		"DialPress": "押す",
+		"TouchTap": "タップ",
+		"TouchLongTap": "長押し",
+		"SeekInTrack": "トラック内シーク",
+		"SwitchTrack": "トラック切り替え",
+		"SecondsPerTick": "1クリックあたりの秒数",
+		"TapSeek": "進行バーをタップしてシーク"
 	}
 }

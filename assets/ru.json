@@ -57,6 +57,15 @@
 		"IdleBackground": "Фон без медиа",
 		"ChooseImage": "Выбрать…",
 		"ClearImage": "Очистить",
-		"NoFile": "Нет файла"
+		"NoFile": "Нет файла",
+		"DialRotate": "Вращение",
+		"DialPressRotate": "Вращение с нажатием",
+		"DialPress": "Нажатие",
+		"TouchTap": "Касание",
+		"TouchLongTap": "Долгое касание",
+		"SeekInTrack": "Перемотка трека",
+		"SwitchTrack": "Переключение треков",
+		"SecondsPerTick": "Секунд за щелчок",
+		"TapSeek": "Касание прогресс-бара перематывает"
 	}
 }

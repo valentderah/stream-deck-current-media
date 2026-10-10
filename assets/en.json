@@ -57,6 +57,15 @@
 		"IdleBackground": "Idle Background",
 		"ChooseImage": "Choose…",
 		"ClearImage": "Clear",
-		"NoFile": "No file"
+		"NoFile": "No file",
+		"DialRotate": "Rotate",
+		"DialPressRotate": "Rotate While Pressed",
+		"DialPress": "Press",
+		"TouchTap": "Tap",
+		"TouchLongTap": "Long Tap",
+		"SeekInTrack": "Seek in Track",
+		"SwitchTrack": "Switch Track",
+		"SecondsPerTick": "Seconds per Tick",
+		"TapSeek": "Tap Progress Bar to Seek"
 	}
 }
