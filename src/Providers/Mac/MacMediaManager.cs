@@ -21,12 +21,17 @@ public sealed class MacMediaManager : IMediaManager
     private bool _disposed;
     private bool _isInitialized;
     private int _crashRetryCount;
-    private double _lastElapsedTime;
+    private readonly object _timelineLock = new();
+    private MediaTimeline _timeline;
+    private MediaTimeline _seekTimeline;
+    private MediaState? _lastState;
+    private bool _hasPayload;
     private string _adapterRoot = "";
     private string _frameworkPath = "";
     private string _perlScriptPath = "";
 
     public event EventHandler<MediaState>? MediaStateChanged;
+    public event EventHandler<MediaTimeline>? TimelineChanged;
 
     public async Task InitializeAsync()
     {
@@ -44,7 +49,24 @@ public sealed class MacMediaManager : IMediaManager
         await RequestUpdateAsync();
     }
 
-    public Task RequestUpdateAsync() => Task.CompletedTask;
+    public Task RequestUpdateAsync()
+    {
+        MediaState? state;
+        MediaTimeline timeline;
+        lock (_timelineLock)
+        {
+            state = _lastState;
+            timeline = _timeline;
+        }
+
+        if (state != null)
+        {
+            MediaStateChanged?.Invoke(this, state);
+            TimelineChanged?.Invoke(this, timeline);
+        }
+
+        return Task.CompletedTask;
+    }
 
     public Task PlayPauseAsync() => RunAdapterCommandAsync("send", CommandTogglePlayPause.ToString());
 
@@ -54,7 +76,28 @@ public sealed class MacMediaManager : IMediaManager
 
     public Task SeekByAsync(int offsetSeconds)
     {
-        var targetMicros = (long)Math.Max(0, (_lastElapsedTime + offsetSeconds) * 1_000_000);
+        MediaTimeline timeline;
+        lock (_timelineLock)
+        {
+            if (!_hasPayload)
+            {
+                return Task.CompletedTask;
+            }
+
+            timeline = _seekTimeline;
+        }
+
+        return SeekToAsync(PlaybackClock.PositionAt(timeline, DateTimeOffset.UtcNow) + offsetSeconds);
+    }
+
+    public Task SeekToAsync(double seconds)
+    {
+        if (!double.IsFinite(seconds))
+        {
+            return Task.CompletedTask;
+        }
+
+        var targetMicros = (long)(Math.Max(0, seconds) * 1_000_000);
         return RunAdapterCommandAsync("seek", targetMicros.ToString());
     }
 
@@ -253,7 +296,6 @@ public sealed class MacMediaManager : IMediaManager
             }
 
             var payload = message.Payload;
-            _lastElapsedTime = payload.ElapsedTimeNow ?? payload.ElapsedTime;
 
             var bundleId = !string.IsNullOrEmpty(payload.ParentApplicationBundleIdentifier)
                 ? payload.ParentApplicationBundleIdentifier
@@ -261,8 +303,24 @@ public sealed class MacMediaManager : IMediaManager
             var appIconBase64 = MacAppIconHelper.GetAppIconBase64(bundleId);
 
             var mediaState = payload.ToMediaState(appIconBase64);
+            var now = DateTimeOffset.UtcNow;
+            var timeline = MediaTimeline.From(mediaState, now);
+            var seekTimeline = new MediaTimeline(
+                mediaState.Position,
+                mediaState.Duration,
+                mediaState.Status == "Playing",
+                mediaState.PositionCapturedAt == default ? now : mediaState.PositionCapturedAt);
+            lock (_timelineLock)
+            {
+                _timeline = timeline;
+                _seekTimeline = seekTimeline;
+                _lastState = mediaState;
+                _hasPayload = true;
+            }
+
             ImagePipeline.PrepareCache(mediaState);
             MediaStateChanged?.Invoke(this, mediaState);
+            TimelineChanged?.Invoke(this, timeline);
         }
         catch (JsonException ex)
         {
@@ -371,7 +429,16 @@ public sealed class MacMediaManager : IMediaManager
     private void NotifyInactive()
     {
         var state = new MediaState { IsActive = false };
+        lock (_timelineLock)
+        {
+            _timeline = MediaTimeline.None;
+            _seekTimeline = MediaTimeline.None;
+            _lastState = state;
+            _hasPayload = false;
+        }
+
         MediaStateChanged?.Invoke(this, state);
+        TimelineChanged?.Invoke(this, MediaTimeline.None);
     }
 
     private void KillProcess()

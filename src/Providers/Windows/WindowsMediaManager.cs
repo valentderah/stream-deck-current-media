@@ -45,6 +45,7 @@ public sealed class WindowsMediaManager : IMediaManager
     private volatile bool _disposed;
 
     public event EventHandler<MediaState>? MediaStateChanged;
+    public event EventHandler<MediaTimeline>? TimelineChanged;
 
     public WindowsMediaManager()
     {
@@ -75,7 +76,18 @@ public sealed class WindowsMediaManager : IMediaManager
     public Task PreviousAsync() =>
         RunCommandAsync(session => session.TrySkipPreviousAsync(), "TrySkipPreviousAsync");
 
-    public Task SeekByAsync(int offsetSeconds) => SeekAsync(TimeSpan.FromSeconds(offsetSeconds));
+    public Task SeekByAsync(int offsetSeconds) => SeekAsync((timeline, status) =>
+        GetEffectivePlaybackPosition(timeline, status) + TimeSpan.FromSeconds(offsetSeconds));
+
+    public Task SeekToAsync(double seconds)
+    {
+        if (!double.IsFinite(seconds))
+        {
+            return Task.CompletedTask;
+        }
+
+        return SeekAsync((timeline, _) => timeline.StartTime + TimeSpan.FromSeconds(Math.Max(0, seconds)));
+    }
 
     public void Dispose()
     {
@@ -151,6 +163,7 @@ public sealed class WindowsMediaManager : IMediaManager
             if (!_disposed)
             {
                 Publish(InactiveState(), force);
+                PublishTimeline(MediaTimeline.None);
             }
 
             return;
@@ -166,6 +179,7 @@ public sealed class WindowsMediaManager : IMediaManager
         if (!_disposed)
         {
             Publish(state, force);
+            PublishTimeline(MediaTimeline.From(state, DateTimeOffset.UtcNow));
         }
     }
 
@@ -643,7 +657,8 @@ public sealed class WindowsMediaManager : IMediaManager
             return;
         }
 
-        state.Position = GetEffectivePlaybackPosition(timeline, status).TotalSeconds;
+        state.Position = (GetEffectivePlaybackPosition(timeline, status) - timeline.StartTime).TotalSeconds;
+        state.PositionCapturedAt = DateTimeOffset.UtcNow;
 
         var duration = timeline.EndTime - timeline.StartTime;
         if (duration > TimeSpan.Zero)
@@ -678,6 +693,18 @@ public sealed class WindowsMediaManager : IMediaManager
         }
     }
 
+    private void PublishTimeline(MediaTimeline timeline)
+    {
+        try
+        {
+            TimelineChanged?.Invoke(this, timeline);
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Failed to publish timeline: {ex.Message}");
+        }
+    }
+
     private async Task RunCommandAsync(Func<SmtcSession, IAsyncOperation<bool>> command, string name)
     {
         var session = await GetCommandSessionAsync().ConfigureAwait(false);
@@ -697,7 +724,7 @@ public sealed class WindowsMediaManager : IMediaManager
         ScheduleUpdate(force: false);
     }
 
-    private async Task SeekAsync(TimeSpan offset)
+    private async Task SeekAsync(Func<SmtcTimeline, SmtcPlaybackStatus, TimeSpan> computeTarget)
     {
         var session = await GetCommandSessionAsync().ConfigureAwait(false);
         if (session == null)
@@ -720,7 +747,7 @@ public sealed class WindowsMediaManager : IMediaManager
                 return;
             }
 
-            target = GetEffectivePlaybackPosition(timeline, playback.PlaybackStatus) + offset;
+            target = computeTarget(timeline, playback.PlaybackStatus);
 
             if (target < timeline.StartTime)
             {
