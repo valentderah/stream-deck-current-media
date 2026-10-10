@@ -89,6 +89,62 @@ public class ImagePipelineIdleTests : IDisposable
         Assert.True(image![72, 72] == new Rgba32(0, 0, 255, 255));
     }
 
+    [Fact]
+    public void StripCover_WithCover_IsTheCoverAtStripSize()
+    {
+        var cover = CreateSolidPngDataUri(300, 300, Color.Blue);
+        var state = new MediaState
+        {
+            IsActive = true,
+            Title = "Song",
+            CoverArtBase64 = cover["data:image/png;base64,".Length..],
+            Status = "Playing"
+        };
+        ImagePipeline.PrepareCache(state);
+
+        using var image = IdleImageHelper.DecodeDataUri(
+            ImagePipeline.RenderStripCover(true, CreateSolidPngDataUri(144, 144, Color.Red)));
+
+        Assert.NotNull(image);
+        Assert.Equal(56, image!.Width);
+        Assert.Equal(56, image.Height);
+        Assert.True(image[28, 28] == new Rgba32(0, 0, 255, 255));
+    }
+
+    [Fact]
+    public void StripCover_MediaWithoutArt_IsTransparent()
+    {
+        ImagePipeline.PrepareCache(new MediaState { IsActive = true, Title = "Song", Status = "Playing" });
+
+        using var image = IdleImageHelper.DecodeDataUri(
+            ImagePipeline.RenderStripCover(true, CreateSolidPngDataUri(144, 144, Color.Red)));
+
+        Assert.NotNull(image);
+        Assert.Equal(56, image!.Width);
+        Assert.Equal(0, image[28, 28].A);
+    }
+
+    [Fact]
+    public void StripCover_Idle_UsesTheIdleImage()
+    {
+        using var image = IdleImageHelper.DecodeDataUri(
+            ImagePipeline.RenderStripCover(false, CreateSolidPngDataUri(144, 144, Color.Red)));
+
+        Assert.NotNull(image);
+        Assert.Equal(56, image!.Width);
+        Assert.True(image[28, 28] == new Rgba32(255, 0, 0, 255));
+    }
+
+    [Fact]
+    public void StripCover_IdleWithoutImage_IsTransparent()
+    {
+        using var image = IdleImageHelper.DecodeDataUri(ImagePipeline.RenderStripCover(false, null));
+
+        Assert.NotNull(image);
+        Assert.Equal(56, image!.Width);
+        Assert.Equal(0, image[28, 28].A);
+    }
+
     private static string CreateSolidPngDataUri(int width, int height, Color color)
     {
         using var image = new Image<Rgba32>(width, height);

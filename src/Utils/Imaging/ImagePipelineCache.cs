@@ -50,6 +50,15 @@ sealed class ImagePipelineCache : IDisposable
         }
     }
 
+    public Image<Rgba32>? CloneSquareCover()
+    {
+        lock (_lock)
+        {
+            var cover = _bitmaps?.SquareFull;
+            return cover == null ? null : ImageExtensions.CloneImage(cover);
+        }
+    }
+
     public (Image<Rgba32> Cover, Image<Rgba32>? Icon) CloneCoverAndIcon(
         ImagePosition position,
         CropMode cropMode,
