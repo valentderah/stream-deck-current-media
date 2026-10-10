@@ -11,7 +11,11 @@ A Stream Deck plugin that displays information about the currently playing media
 - **Dynamic Display**: Shows the cover art, title, and artist, as well as the source: Spotify, Chrome, etc.
 - **Large Cover Art Mode**: Combine a 2x2 grid of keys to display a single large cover image.
 - **Playback Controls**: Dedicated actions for Play/Pause, Next, and Previous track.
-- **Seek Functionality**: Actions for seeking forward/backward.
+- **Seek Functionality**: Actions for seeking forward/backward. The seek step is configurable in seconds.
+- **Long Press Actions**: Assign a second action to a long press of a key, such as Next track or Seek Forward.
+- **Stream Deck+ Dial and Touch Strip**: Shows the cover art, title, artist, and a progress bar with elapsed and total time on the touch strip.
+- **Idle Background**: When nothing is playing, the touch strip shows a custom image chosen in the action settings. Cover art replaces it during playback.
+- **Organized Settings**: Settings are grouped into Key, Dial, Touch Strip, and Display sections.
 - **Fully Customizable**: Configure what happens on key press, whether to display the media source, title, or artist, etc.
 - **Cross-Platform**: Available on Windows and macOS.
 - **Wide Compatibility**: Works with Spotify, Chrome, Yandex Music, Apple Music, and other apps that integrate with system media controls on Windows (SMTC) and macOS.
