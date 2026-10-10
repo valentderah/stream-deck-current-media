@@ -82,3 +82,15 @@ public enum OverlayDisplayMode
     [EnumMember(Value = "both")]
     Both
 }
+
+public enum DialRotateMode
+{
+    [EnumMember(Value = "seek")]
+    Seek,
+
+    [EnumMember(Value = "track")]
+    Track,
+
+    [EnumMember(Value = "none")]
+    None
+}
