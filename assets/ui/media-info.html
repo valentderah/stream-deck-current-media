@@ -29,7 +29,7 @@
         </div>
 
         <div class="sdpi-item" data-controller="Keypad">
-            <label class="sdpi-item-label" data-i18n="ActionOnClick">Action on Click</label>
+            <label class="sdpi-item-label" data-i18n="ActionOnClick">Press</label>
             <select class="sdpi-item-value" data-setting="action" data-default="toggle">
                 <option value="toggle" data-i18n="PlayPause">Play/Pause</option>
                 <option value="next" data-i18n="NextTrack">Next Track</option>
@@ -40,7 +40,20 @@
             </select>
         </div>
 
-        <div class="sdpi-item" data-controller="Keypad" data-visible-when="action=forward,backward">
+        <div class="sdpi-item" data-controller="Keypad">
+            <label class="sdpi-item-label" data-i18n="KeyLongPress">Long Press</label>
+            <select class="sdpi-item-value" data-setting="keyLongPress" data-default="none">
+                <option value="toggle" data-i18n="PlayPause">Play/Pause</option>
+                <option value="next" data-i18n="NextTrack">Next Track</option>
+                <option value="previous" data-i18n="PreviousTrack">Previous Track</option>
+                <option value="forward" data-i18n="SeekForward">Seek Forward</option>
+                <option value="backward" data-i18n="SeekBackward">Seek Backward</option>
+                <option value="none" data-i18n="None">None</option>
+            </select>
+        </div>
+
+        <div class="sdpi-item" data-controller="Keypad"
+             data-visible-when="action=forward,backward;keyLongPress=forward,backward">
             <label class="sdpi-item-label" data-i18n="Seconds">Seconds</label>
             <input class="sdpi-item-value" type="number" min="1" step="1"
                    data-setting="seconds" data-default="10" />

@@ -51,13 +51,13 @@
 		});
 		document.querySelectorAll("[data-visible-when]").forEach(function (row) {
 			if (!matchesController(row)) return;
-			var spec = row.getAttribute("data-visible-when");
-			var eq = spec.indexOf("=");
-			if (eq === -1) return;
-			var key = spec.slice(0, eq);
-			var values = spec.slice(eq + 1).split(",");
-			var current = settings[key];
-			row.style.display = values.indexOf(String(current)) === -1 ? "none" : "flex";
+			var visible = row.getAttribute("data-visible-when").split(";").some(function (spec) {
+				var eq = spec.indexOf("=");
+				if (eq === -1) return false;
+				var values = spec.slice(eq + 1).split(",");
+				return values.indexOf(String(settings[spec.slice(0, eq)])) !== -1;
+			});
+			row.style.display = visible ? "flex" : "none";
 		});
 	}
 

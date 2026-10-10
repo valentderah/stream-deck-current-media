@@ -28,7 +28,8 @@
 	},
 	"Localization": {
 		"ImageMode": "Режим изображения",
-		"ActionOnClick": "Действие по нажатию",
+		"ActionOnClick": "Нажатие",
+		"KeyLongPress": "Долгое нажатие",
 		"TextDisplay": "Отображение текста",
 		"OverlayDisplay": "Отображение оверлея",
 		"MarqueeSpeed": "Скорость прокрутки",

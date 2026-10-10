@@ -28,7 +28,8 @@
 	},
 	"Localization": {
 		"ImageMode": "Image Mode",
-		"ActionOnClick": "Action on Click",
+		"ActionOnClick": "Press",
+		"KeyLongPress": "Long Press",
 		"TextDisplay": "Text Display",
 		"OverlayDisplay": "Overlay Display",
 		"MarqueeSpeed": "Marquee Speed",

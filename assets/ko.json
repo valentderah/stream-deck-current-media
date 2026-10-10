@@ -28,7 +28,8 @@
 	},
 	"Localization": {
 		"ImageMode": "이미지 모드",
-		"ActionOnClick": "클릭 시 동작",
+		"ActionOnClick": "누르기",
+		"KeyLongPress": "길게 누르기",
 		"TextDisplay": "텍스트 표시",
 		"OverlayDisplay": "오버레이 표시",
 		"MarqueeSpeed": "마키 속도",

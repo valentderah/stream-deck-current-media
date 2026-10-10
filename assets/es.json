@@ -28,7 +28,8 @@
 	},
 	"Localization": {
 		"ImageMode": "Modo de imagen",
-		"ActionOnClick": "Acción al hacer clic",
+		"ActionOnClick": "Pulsar",
+		"KeyLongPress": "Pulsación larga",
 		"TextDisplay": "Visualización de texto",
 		"OverlayDisplay": "Visualización de superposición",
 		"MarqueeSpeed": "Velocidad del marquesina",

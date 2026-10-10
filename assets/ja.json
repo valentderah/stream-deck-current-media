@@ -28,7 +28,8 @@
 	},
 	"Localization": {
 		"ImageMode": "画像モード",
-		"ActionOnClick": "クリック時の動作",
+		"ActionOnClick": "押す",
+		"KeyLongPress": "長押し",
 		"TextDisplay": "テキスト表示",
 		"OverlayDisplay": "オーバーレイ表示",
 		"MarqueeSpeed": "マーキー速度",

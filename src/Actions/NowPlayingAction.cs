@@ -19,10 +19,14 @@ public class NowPlayingAction : KeyAndEncoderBase
     private readonly NowPlayingDialView? _dialView;
     private readonly SeekAccumulator? _seek;
     private readonly PluginStrings? _strings;
+    private static readonly TimeSpan KeyHoldThreshold = TimeSpan.FromMilliseconds(500);
+
     private readonly DialPressTracker _press = new();
+    private readonly KeyHoldTracker _hold = new();
     private readonly TrackStepThrottle _trackSteps = new(TrackStepInterval, TimeProvider.System);
     private readonly SeekSeries _seekSeries = new(TimelineTracker.HoldDuration, TimeProvider.System);
     private MediaState _currentMediaState = new();
+    private Timer? _holdTimer;
 
     public NowPlayingAction(ISDConnection connection, InitialPayload payload) : base(connection, payload)
     {
@@ -77,6 +81,8 @@ public class NowPlayingAction : KeyAndEncoderBase
         MediaManagerProvider.Instance.TimelineChanged -= OnTimelineChanged;
         Connection.OnPropertyInspectorDidAppear -= OnPropertyInspectorDidAppear;
         Connection.OnSendToPlugin -= OnSendToPlugin;
+        Interlocked.Exchange(ref _holdTimer, null)?.Dispose();
+        _hold.Up();
         _seek?.Dispose();
         _keyView?.Dispose();
         _dialView?.Dispose();
@@ -115,10 +121,14 @@ public class NowPlayingAction : KeyAndEncoderBase
     {
         try
         {
-            await MediaCommand.RunAsync(
-                MediaManagerProvider.Instance,
-                _settings.Action,
-                SeekSeconds.Normalize(_settings.Seconds));
+            if (_settings.KeyLongPress == ActionType.None)
+            {
+                await RunKeyCommandAsync(_settings.Action);
+                return;
+            }
+
+            var timer = new Timer(OnKeyHeld, _hold.Down(), KeyHoldThreshold, Timeout.InfiniteTimeSpan);
+            Interlocked.Exchange(ref _holdTimer, timer)?.Dispose();
         }
         catch (Exception ex)
         {
@@ -126,7 +136,39 @@ public class NowPlayingAction : KeyAndEncoderBase
         }
     }
 
-    public override void KeyReleased(KeyPayload payload) { }
+    public override async void KeyReleased(KeyPayload payload)
+    {
+        try
+        {
+            Interlocked.Exchange(ref _holdTimer, null)?.Dispose();
+            if (_hold.Up())
+            {
+                await RunKeyCommandAsync(_settings.Action);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error on key release: {ex.Message}");
+        }
+    }
+
+    private async void OnKeyHeld(object? press)
+    {
+        try
+        {
+            if (_hold.Hold((int)press!))
+            {
+                await RunKeyCommandAsync(_settings.KeyLongPress);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.LogMessage(TracingLevel.ERROR, $"Error on key long press: {ex.Message}");
+        }
+    }
+
+    private Task RunKeyCommandAsync(ActionType action) =>
+        MediaCommand.RunAsync(MediaManagerProvider.Instance, action, SeekSeconds.Normalize(_settings.Seconds));
 
     public override async void DialRotate(DialRotatePayload payload)
     {

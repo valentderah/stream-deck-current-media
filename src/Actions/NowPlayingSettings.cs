@@ -38,6 +38,10 @@ internal sealed class NowPlayingSettings
     [JsonConverter(typeof(StringEnumConverter))]
     public ActionType Action { get; set; } = ActionType.Toggle;
 
+    [JsonProperty(PropertyName = "keyLongPress")]
+    [JsonConverter(typeof(StringEnumConverter))]
+    public ActionType KeyLongPress { get; set; } = ActionType.None;
+
     [JsonProperty(PropertyName = "overlayDisplayMode")]
     [JsonConverter(typeof(StringEnumConverter))]
     public OverlayDisplayMode OverlayDisplayMode { get; set; } = OverlayDisplayMode.None;

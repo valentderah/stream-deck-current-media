@@ -28,7 +28,8 @@
 	},
 	"Localization": {
 		"ImageMode": "Mode image",
-		"ActionOnClick": "Action au clic",
+		"ActionOnClick": "Appui",
+		"KeyLongPress": "Appui long",
 		"TextDisplay": "Affichage du texte",
 		"OverlayDisplay": "Affichage de la superposition",
 		"MarqueeSpeed": "Vitesse du défilement",

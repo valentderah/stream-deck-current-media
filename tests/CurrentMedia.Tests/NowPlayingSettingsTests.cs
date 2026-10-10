@@ -45,6 +45,7 @@ public class NowPlayingSettingsTests
         Assert.Equal(75, settings.MarqueeSpeed);
         Assert.Equal(ImagePosition.TopRight, settings.Position);
         Assert.Equal(ActionType.Backward, settings.Action);
+        Assert.Equal(ActionType.None, settings.KeyLongPress);
         Assert.Equal(OverlayDisplayMode.Icon, settings.OverlayDisplayMode);
         Assert.Equal(CropMode.Fit, settings.CropMode);
         Assert.Equal(30, settings.Seconds);
@@ -60,6 +61,14 @@ public class NowPlayingSettingsTests
         var settings = NowPlayingSettings.FromPayload(saved);
 
         Assert.Equal(ActionType.Toggle, settings.Action);
+    }
+
+    [Fact]
+    public void FromPayload_KeyLongPress_IsRead()
+    {
+        var saved = JObject.Parse("""{ "action": "toggle", "keyLongPress": "next" }""");
+
+        Assert.Equal(ActionType.Next, NowPlayingSettings.FromPayload(saved).KeyLongPress);
     }
 
     [Fact]

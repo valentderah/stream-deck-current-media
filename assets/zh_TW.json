@@ -28,7 +28,8 @@
 	},
 	"Localization": {
 		"ImageMode": "圖片模式",
-		"ActionOnClick": "點擊操作",
+		"ActionOnClick": "按下",
+		"KeyLongPress": "長按",
 		"TextDisplay": "文字顯示",
 		"OverlayDisplay": "疊加顯示",
 		"MarqueeSpeed": "捲動速度",

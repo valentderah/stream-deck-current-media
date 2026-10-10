@@ -28,7 +28,8 @@
 	},
 	"Localization": {
 		"ImageMode": "Bildmodus",
-		"ActionOnClick": "Aktion beim Klicken",
+		"ActionOnClick": "Drücken",
+		"KeyLongPress": "Langes Drücken",
 		"TextDisplay": "Textanzeige",
 		"OverlayDisplay": "Overlay-Anzeige",
 		"MarqueeSpeed": "Lauftext-Geschwindigkeit",
