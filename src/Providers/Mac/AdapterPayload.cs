@@ -68,7 +68,8 @@ internal sealed class AdapterPayload
             CoverArtBase64 = MacArtworkConverter.NormalizeToDisplayBase64(ArtworkData),
             AppIconBase64 = appIconBase64,
             Position = ElapsedTimeNow ?? ElapsedTime,
-            Duration = Duration
+            Duration = Duration,
+            PositionCapturedAt = DateTimeOffset.UtcNow
         };
     }
 }

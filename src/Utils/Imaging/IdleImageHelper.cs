@@ -57,7 +57,9 @@ static class IdleImageHelper
         return ImageExtensions.ToPngDataUri(cropped);
     }
 
-    public static string? TryLoadFromFile(string? path)
+    public static string? TryLoadFromFile(string? path) => TryLoadFromFile(path, Size, Size);
+
+    public static string? TryLoadFromFile(string? path, int width, int height)
     {
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
         {
@@ -74,7 +76,7 @@ static class IdleImageHelper
 
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             using var decoded = Image.Load<Rgba32>(stream);
-            using var cropped = CropToCanonical(decoded);
+            using var cropped = Crop(decoded, width, height);
             return ImageExtensions.ToPngDataUri(cropped);
         }
         catch
@@ -83,11 +85,13 @@ static class IdleImageHelper
         }
     }
 
-    private static Image<Rgba32> CropToCanonical(Image<Rgba32> source)
+    private static Image<Rgba32> CropToCanonical(Image<Rgba32> source) => Crop(source, Size, Size);
+
+    private static Image<Rgba32> Crop(Image<Rgba32> source, int width, int height)
     {
         return source.Clone(ctx => ctx.Resize(new ResizeOptions
         {
-            Size = new Size(Size, Size),
+            Size = new Size(width, height),
             Mode = ResizeMode.Crop,
             Position = AnchorPositionMode.Center
         }));

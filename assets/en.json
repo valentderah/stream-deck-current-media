@@ -28,7 +28,8 @@
 	},
 	"Localization": {
 		"ImageMode": "Image Mode",
-		"ActionOnClick": "Action on Click",
+		"ActionOnClick": "Press",
+		"KeyLongPress": "Long Press",
 		"TextDisplay": "Text Display",
 		"OverlayDisplay": "Overlay Display",
 		"MarqueeSpeed": "Marquee Speed",
@@ -57,6 +58,19 @@
 		"IdleBackground": "Idle Background",
 		"ChooseImage": "Choose…",
 		"ClearImage": "Clear",
-		"NoFile": "No file"
+		"NoFile": "No file",
+		"DialRotate": "Rotate",
+		"DialPressRotate": "Rotate While Pressed",
+		"DialPress": "Press",
+		"TouchTap": "Tap",
+		"TouchLongTap": "Long Tap",
+		"SeekInTrack": "Seek in Track",
+		"SwitchTrack": "Switch Track",
+		"SeekStep": "Seek Step (sec)",
+		"TapSeek": "Tap Progress Bar to Seek",
+		"SectionKey": "Key",
+		"SectionDial": "Dial",
+		"SectionTouchStrip": "Touch Strip",
+		"SectionDisplay": "Display"
 	}
 }

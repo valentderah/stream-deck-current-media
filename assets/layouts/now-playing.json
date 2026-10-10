@@ -1,0 +1,71 @@
+{
+	"$schema": "https://schemas.elgato.com/streamdeck/plugins/layout.json",
+	"id": "now-playing",
+	"items": [
+		{
+			"key": "background",
+			"type": "pixmap",
+			"rect": [0, 0, 200, 100],
+			"zOrder": 0
+		},
+		{
+			"key": "cover",
+			"type": "pixmap",
+			"rect": [8, 6, 56, 56],
+			"zOrder": 1
+		},
+		{
+			"key": "title",
+			"type": "text",
+			"rect": [72, 10, 122, 24],
+			"zOrder": 1,
+			"font": { "size": 16, "weight": 600 },
+			"alignment": "left",
+			"text-overflow": "fade",
+			"color": "#FFFFFF",
+			"value": ""
+		},
+		{
+			"key": "artist",
+			"type": "text",
+			"rect": [72, 36, 122, 20],
+			"zOrder": 1,
+			"font": { "size": 13, "weight": 400 },
+			"alignment": "left",
+			"text-overflow": "fade",
+			"color": "#B0B0B0",
+			"value": ""
+		},
+		{
+			"key": "elapsed",
+			"type": "text",
+			"rect": [6, 74, 44, 18],
+			"zOrder": 1,
+			"font": { "size": 12, "weight": 400 },
+			"alignment": "left",
+			"color": "#B0B0B0",
+			"value": ""
+		},
+		{
+			"key": "progress",
+			"type": "bar",
+			"rect": [54, 79, 92, 8],
+			"zOrder": 1,
+			"subtype": 0,
+			"border_w": 0,
+			"bar_bg_c": "#3A3A3A",
+			"bar_fill_c": "#FFFFFF",
+			"value": 0
+		},
+		{
+			"key": "duration",
+			"type": "text",
+			"rect": [150, 74, 44, 18],
+			"zOrder": 1,
+			"font": { "size": 12, "weight": 400 },
+			"alignment": "right",
+			"color": "#B0B0B0",
+			"value": ""
+		}
+	]
+}

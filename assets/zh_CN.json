@@ -28,7 +28,8 @@
 	},
 	"Localization": {
 		"ImageMode": "图片模式",
-		"ActionOnClick": "点击操作",
+		"ActionOnClick": "按下",
+		"KeyLongPress": "长按",
 		"TextDisplay": "文字显示",
 		"OverlayDisplay": "叠加显示",
 		"MarqueeSpeed": "滚动速度",
@@ -57,6 +58,19 @@
 		"IdleBackground": "空闲背景",
 		"ChooseImage": "选择…",
 		"ClearImage": "清除",
-		"NoFile": "无文件"
+		"NoFile": "无文件",
+		"DialRotate": "旋转",
+		"DialPressRotate": "按住旋转",
+		"DialPress": "按下",
+		"TouchTap": "轻触",
+		"TouchLongTap": "长按",
+		"SeekInTrack": "曲目内跳转",
+		"SwitchTrack": "切换曲目",
+		"SeekStep": "跳转步长（秒）",
+		"TapSeek": "轻触进度条跳转",
+		"SectionKey": "按键",
+		"SectionDial": "旋钮",
+		"SectionTouchStrip": "触控条",
+		"SectionDisplay": "显示"
 	}
 }

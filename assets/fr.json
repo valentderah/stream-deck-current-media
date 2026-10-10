@@ -28,7 +28,8 @@
 	},
 	"Localization": {
 		"ImageMode": "Mode image",
-		"ActionOnClick": "Action au clic",
+		"ActionOnClick": "Appui",
+		"KeyLongPress": "Appui long",
 		"TextDisplay": "Affichage du texte",
 		"OverlayDisplay": "Affichage de la superposition",
 		"MarqueeSpeed": "Vitesse du défilement",
@@ -57,6 +58,19 @@
 		"IdleBackground": "Fond inactif",
 		"ChooseImage": "Choisir…",
 		"ClearImage": "Effacer",
-		"NoFile": "Aucun fichier"
+		"NoFile": "Aucun fichier",
+		"DialRotate": "Rotation",
+		"DialPressRotate": "Rotation en appuyant",
+		"DialPress": "Appui",
+		"TouchTap": "Toucher",
+		"TouchLongTap": "Toucher long",
+		"SeekInTrack": "Avancer dans la piste",
+		"SwitchTrack": "Changer de piste",
+		"SeekStep": "Pas d'avance (s)",
+		"TapSeek": "Toucher la barre de progression pour avancer",
+		"SectionKey": "Touche",
+		"SectionDial": "Molette",
+		"SectionTouchStrip": "Bande tactile",
+		"SectionDisplay": "Affichage"
 	}
 }

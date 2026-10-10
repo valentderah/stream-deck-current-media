@@ -13,6 +13,7 @@ public class MediaState
     public string AppIconBase64 { get; set; } = "";
     public double Position { get; set; }
     public double Duration { get; set; }
+    public DateTimeOffset PositionCapturedAt { get; set; }
 
     public bool HasMediaData =>
         IsActive && (!string.IsNullOrEmpty(Title) || !string.IsNullOrEmpty(Artist) || Artists.Count > 0);

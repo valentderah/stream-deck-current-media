@@ -28,7 +28,8 @@
 	},
 	"Localization": {
 		"ImageMode": "Bildmodus",
-		"ActionOnClick": "Aktion beim Klicken",
+		"ActionOnClick": "Drücken",
+		"KeyLongPress": "Langes Drücken",
 		"TextDisplay": "Textanzeige",
 		"OverlayDisplay": "Overlay-Anzeige",
 		"MarqueeSpeed": "Lauftext-Geschwindigkeit",
@@ -57,6 +58,19 @@
 		"IdleBackground": "Leer-Hintergrund",
 		"ChooseImage": "Wählen…",
 		"ClearImage": "Löschen",
-		"NoFile": "Keine Datei"
+		"NoFile": "Keine Datei",
+		"DialRotate": "Drehen",
+		"DialPressRotate": "Gedrückt drehen",
+		"DialPress": "Drücken",
+		"TouchTap": "Tippen",
+		"TouchLongTap": "Langes Tippen",
+		"SeekInTrack": "Im Titel spulen",
+		"SwitchTrack": "Titel wechseln",
+		"SeekStep": "Spulschritt (Sek.)",
+		"TapSeek": "Tippen auf den Fortschrittsbalken spult",
+		"SectionKey": "Taste",
+		"SectionDial": "Drehregler",
+		"SectionTouchStrip": "Touch-Leiste",
+		"SectionDisplay": "Anzeige"
 	}
 }

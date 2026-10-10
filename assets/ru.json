@@ -28,7 +28,8 @@
 	},
 	"Localization": {
 		"ImageMode": "Режим изображения",
-		"ActionOnClick": "Действие по нажатию",
+		"ActionOnClick": "Нажатие",
+		"KeyLongPress": "Долгое нажатие",
 		"TextDisplay": "Отображение текста",
 		"OverlayDisplay": "Отображение оверлея",
 		"MarqueeSpeed": "Скорость прокрутки",
@@ -57,6 +58,19 @@
 		"IdleBackground": "Фон без медиа",
 		"ChooseImage": "Выбрать…",
 		"ClearImage": "Очистить",
-		"NoFile": "Нет файла"
+		"NoFile": "Нет файла",
+		"DialRotate": "Вращение",
+		"DialPressRotate": "Вращение с нажатием",
+		"DialPress": "Нажатие",
+		"TouchTap": "Касание",
+		"TouchLongTap": "Долгое касание",
+		"SeekInTrack": "Перемотка трека",
+		"SwitchTrack": "Переключение треков",
+		"SeekStep": "Шаг перемотки (сек)",
+		"TapSeek": "Касание прогресс-бара перематывает",
+		"SectionKey": "Клавиша",
+		"SectionDial": "Dial",
+		"SectionTouchStrip": "Полоса прокрутки",
+		"SectionDisplay": "Отображение"
 	}
 }

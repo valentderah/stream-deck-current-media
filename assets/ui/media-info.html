@@ -8,7 +8,112 @@
 
 <body style="visibility: hidden;">
     <div class="sdpi-wrapper">
-        <div class="sdpi-item">
+        <div class="sdpi-heading" data-controller="Keypad" data-i18n="SectionKey">Key</div>
+
+        <div class="sdpi-item" data-controller="Keypad">
+            <label class="sdpi-item-label" data-i18n="ActionOnClick">Press</label>
+            <select class="sdpi-item-value" data-setting="action" data-default="toggle">
+                <option value="toggle" data-i18n="PlayPause">Play/Pause</option>
+                <option value="next" data-i18n="NextTrack">Next Track</option>
+                <option value="previous" data-i18n="PreviousTrack">Previous Track</option>
+                <option value="forward" data-i18n="SeekForward">Seek Forward</option>
+                <option value="backward" data-i18n="SeekBackward">Seek Backward</option>
+                <option value="none" data-i18n="None">None</option>
+            </select>
+        </div>
+
+        <div class="sdpi-item" data-controller="Keypad">
+            <label class="sdpi-item-label" data-i18n="KeyLongPress">Long Press</label>
+            <select class="sdpi-item-value" data-setting="keyLongPress" data-default="none">
+                <option value="toggle" data-i18n="PlayPause">Play/Pause</option>
+                <option value="next" data-i18n="NextTrack">Next Track</option>
+                <option value="previous" data-i18n="PreviousTrack">Previous Track</option>
+                <option value="forward" data-i18n="SeekForward">Seek Forward</option>
+                <option value="backward" data-i18n="SeekBackward">Seek Backward</option>
+                <option value="none" data-i18n="None">None</option>
+            </select>
+        </div>
+
+        <div class="sdpi-item" data-controller="Keypad"
+             data-visible-when="action=forward,backward;keyLongPress=forward,backward">
+            <label class="sdpi-item-label" data-i18n="Seconds">Seconds</label>
+            <input class="sdpi-item-value" type="number" min="1" step="1"
+                   data-setting="seconds" data-default="10" />
+        </div>
+
+        <div class="sdpi-heading" data-controller="Encoder" data-i18n="SectionDial">Dial</div>
+
+        <div class="sdpi-item" data-controller="Encoder">
+            <label class="sdpi-item-label" data-i18n="DialRotate">Rotate</label>
+            <select class="sdpi-item-value" data-setting="dialRotate" data-default="seek">
+                <option value="seek" data-i18n="SeekInTrack">Seek in Track</option>
+                <option value="track" data-i18n="SwitchTrack">Switch Track</option>
+                <option value="none" data-i18n="None">None</option>
+            </select>
+        </div>
+
+        <div class="sdpi-item" data-controller="Encoder">
+            <label class="sdpi-item-label" data-i18n="DialPressRotate">Rotate While Pressed</label>
+            <select class="sdpi-item-value" data-setting="dialPressRotate" data-default="track">
+                <option value="seek" data-i18n="SeekInTrack">Seek in Track</option>
+                <option value="track" data-i18n="SwitchTrack">Switch Track</option>
+                <option value="none" data-i18n="None">None</option>
+            </select>
+        </div>
+
+        <div class="sdpi-item" data-controller="Encoder">
+            <label class="sdpi-item-label" data-i18n="DialPress">Press</label>
+            <select class="sdpi-item-value" data-setting="dialPress" data-default="toggle">
+                <option value="toggle" data-i18n="PlayPause">Play/Pause</option>
+                <option value="next" data-i18n="NextTrack">Next Track</option>
+                <option value="previous" data-i18n="PreviousTrack">Previous Track</option>
+                <option value="forward" data-i18n="SeekForward">Seek Forward</option>
+                <option value="backward" data-i18n="SeekBackward">Seek Backward</option>
+                <option value="none" data-i18n="None">None</option>
+            </select>
+        </div>
+
+        <div class="sdpi-item" data-controller="Encoder"
+             data-visible-when="dialRotate=seek;dialPressRotate=seek;dialPress=forward,backward;touchTap=forward,backward;touchLongTap=forward,backward">
+            <label class="sdpi-item-label" data-i18n="SeekStep">Seek Step (sec)</label>
+            <input class="sdpi-item-value" type="number" min="1" step="1"
+                   data-setting="dialSeekSeconds" data-default="5" />
+        </div>
+
+        <div class="sdpi-heading" data-controller="Encoder" data-i18n="SectionTouchStrip">Touch Strip</div>
+
+        <div class="sdpi-item" data-controller="Encoder">
+            <label class="sdpi-item-label" data-i18n="TouchTap">Tap</label>
+            <select class="sdpi-item-value" data-setting="touchTap" data-default="toggle">
+                <option value="toggle" data-i18n="PlayPause">Play/Pause</option>
+                <option value="next" data-i18n="NextTrack">Next Track</option>
+                <option value="previous" data-i18n="PreviousTrack">Previous Track</option>
+                <option value="forward" data-i18n="SeekForward">Seek Forward</option>
+                <option value="backward" data-i18n="SeekBackward">Seek Backward</option>
+                <option value="none" data-i18n="None">None</option>
+            </select>
+        </div>
+
+        <div class="sdpi-item" data-controller="Encoder">
+            <label class="sdpi-item-label" data-i18n="TouchLongTap">Long Tap</label>
+            <select class="sdpi-item-value" data-setting="touchLongTap" data-default="none">
+                <option value="toggle" data-i18n="PlayPause">Play/Pause</option>
+                <option value="next" data-i18n="NextTrack">Next Track</option>
+                <option value="previous" data-i18n="PreviousTrack">Previous Track</option>
+                <option value="forward" data-i18n="SeekForward">Seek Forward</option>
+                <option value="backward" data-i18n="SeekBackward">Seek Backward</option>
+                <option value="none" data-i18n="None">None</option>
+            </select>
+        </div>
+
+        <div class="sdpi-item" data-controller="Encoder">
+            <label class="sdpi-item-label" data-i18n="TapSeek">Tap Progress Bar to Seek</label>
+            <input class="sdpi-item-value" type="checkbox" data-setting="tapSeek" data-default="true" />
+        </div>
+
+        <div class="sdpi-heading" data-i18n="SectionDisplay">Display</div>
+
+        <div class="sdpi-item" data-controller="Keypad">
             <label class="sdpi-item-label" data-i18n="ImageMode">Image Mode</label>
             <select class="sdpi-item-value" data-setting="position" data-default="none">
                 <option value="none" data-i18n="Full">Full</option>
@@ -20,30 +125,12 @@
             </select>
         </div>
 
-        <div class="sdpi-item">
+        <div class="sdpi-item" data-controller="Keypad">
             <label class="sdpi-item-label" data-i18n="CoverCrop">Cover Crop</label>
             <select class="sdpi-item-value" data-setting="cropMode" data-default="square">
                 <option value="square" data-i18n="CropToSquare">Crop to Square</option>
                 <option value="fit" data-i18n="OriginalRatio">Original Ratio</option>
             </select>
-        </div>
-
-        <div class="sdpi-item">
-            <label class="sdpi-item-label" data-i18n="ActionOnClick">Action on Click</label>
-            <select class="sdpi-item-value" data-setting="action" data-default="toggle">
-                <option value="toggle" data-i18n="PlayPause">Play/Pause</option>
-                <option value="next" data-i18n="NextTrack">Next Track</option>
-                <option value="previous" data-i18n="PreviousTrack">Previous Track</option>
-                <option value="forward" data-i18n="SeekForward">Seek Forward</option>
-                <option value="backward" data-i18n="SeekBackward">Seek Backward</option>
-                <option value="none" data-i18n="None">None</option>
-            </select>
-        </div>
-
-        <div class="sdpi-item" data-visible-when="action=forward,backward">
-            <label class="sdpi-item-label" data-i18n="Seconds">Seconds</label>
-            <input class="sdpi-item-value" type="number" min="1" step="1"
-                   data-setting="seconds" data-default="10" />
         </div>
 
         <div class="sdpi-item">
@@ -56,7 +143,7 @@
             </select>
         </div>
 
-        <div class="sdpi-item">
+        <div class="sdpi-item" data-controller="Keypad">
             <label class="sdpi-item-label" data-i18n="OverlayDisplay">Overlay Display</label>
             <select class="sdpi-item-value" data-setting="overlayDisplayMode" data-default="none">
                 <option value="both" data-i18n="AppIconAndStatus">App Icon and Status</option>
@@ -66,7 +153,7 @@
             </select>
         </div>
 
-        <div class="sdpi-item">
+        <div class="sdpi-item" data-visible-when="textDisplayMode=both,artists,title">
             <label class="sdpi-item-label" data-i18n="MarqueeSpeed">Marquee Speed</label>
             <div class="sdpi-range-wrapper">
                 <input class="sdpi-item-value" type="range" min="0" max="100" step="1"

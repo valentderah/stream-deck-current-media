@@ -28,7 +28,8 @@
 	},
 	"Localization": {
 		"ImageMode": "이미지 모드",
-		"ActionOnClick": "클릭 시 동작",
+		"ActionOnClick": "누르기",
+		"KeyLongPress": "길게 누르기",
 		"TextDisplay": "텍스트 표시",
 		"OverlayDisplay": "오버레이 표시",
 		"MarqueeSpeed": "마키 속도",
@@ -57,6 +58,19 @@
 		"IdleBackground": "대기 배경",
 		"ChooseImage": "선택…",
 		"ClearImage": "지우기",
-		"NoFile": "파일 없음"
+		"NoFile": "파일 없음",
+		"DialRotate": "회전",
+		"DialPressRotate": "누른 채 회전",
+		"DialPress": "누르기",
+		"TouchTap": "탭",
+		"TouchLongTap": "길게 탭",
+		"SeekInTrack": "트랙 내 탐색",
+		"SwitchTrack": "트랙 전환",
+		"SeekStep": "탐색 간격 (초)",
+		"TapSeek": "진행 막대를 탭하여 탐색",
+		"SectionKey": "키",
+		"SectionDial": "다이얼",
+		"SectionTouchStrip": "터치 스트립",
+		"SectionDisplay": "표시"
 	}
 }

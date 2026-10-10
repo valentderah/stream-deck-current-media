@@ -30,4 +30,14 @@ public class SeekSecondsTests
     {
         Assert.Equal(SeekSeconds.Default, SeekSeconds.Normalize(input));
     }
+
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(15, 15)]
+    [InlineData(0, 5)]
+    [InlineData(-3, 5)]
+    public void Normalize_WithFallback_UsesItForNonPositiveValues(int input, int expected)
+    {
+        Assert.Equal(expected, SeekSeconds.Normalize(input, SeekSeconds.DialDefault));
+    }
 }

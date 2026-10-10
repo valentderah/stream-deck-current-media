@@ -1,5 +1,6 @@
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
 namespace CurrentMedia.Imaging;
 
@@ -67,5 +68,34 @@ public static class ImagePipeline
         {
             idleBitmap?.Dispose();
         }
+    }
+
+    public static string RenderStripCover(bool hasMedia)
+    {
+        var source = hasMedia ? _cache.CloneSquareCover() : null;
+        using var image = source ?? ImageExtensions.CreateTransparent(TouchZones.CoverSize);
+        if (image.Width != TouchZones.CoverSize || image.Height != TouchZones.CoverSize)
+        {
+            image.Mutate(ctx => ctx.Resize(TouchZones.CoverSize, TouchZones.CoverSize));
+        }
+
+        return ImageExtensions.ToPngDataUri(image);
+    }
+
+    public static string RenderStripBackground(bool hasMedia, string? idleImage)
+    {
+        var source = hasMedia ? null : IdleImageHelper.DecodeDataUri(idleImage);
+        using var image = source ?? new Image<Rgba32>(TouchZones.StripWidth, TouchZones.StripHeight);
+        if (image.Width != TouchZones.StripWidth || image.Height != TouchZones.StripHeight)
+        {
+            image.Mutate(ctx => ctx.Resize(new ResizeOptions
+            {
+                Size = new Size(TouchZones.StripWidth, TouchZones.StripHeight),
+                Mode = ResizeMode.Crop,
+                Position = AnchorPositionMode.Center
+            }));
+        }
+
+        return ImageExtensions.ToPngDataUri(image);
     }
 }
