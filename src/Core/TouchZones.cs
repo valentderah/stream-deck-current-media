@@ -2,6 +2,8 @@ namespace CurrentMedia;
 
 internal static class TouchZones
 {
+    public const int StripWidth = 200;
+    public const int StripHeight = 100;
     public const int CoverSize = 56;
     public const int TextWidth = 122;
     public const int TitleFontSize = 16;

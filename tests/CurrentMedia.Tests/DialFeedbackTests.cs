@@ -104,12 +104,13 @@ public class DialFeedbackTests
     {
         var feedback = new DialFeedback();
 
-        var payload = feedback.Next(Frame(), "cover:1", () => "data:cover");
+        var payload = feedback.Next(Frame(), "cover:1", () => "data:cover", "bg:1", () => "data:bg");
 
         Assert.NotNull(payload);
         Assert.Equal("Song", (string)payload!["title"]!);
         Assert.Equal("Artist", (string)payload["artist"]!);
         Assert.Equal("data:cover", (string)payload["cover"]!);
+        Assert.Equal("data:bg", (string)payload["background"]!);
         Assert.Equal("0:30", (string)payload["elapsed"]!["value"]!);
         Assert.True((bool)payload["elapsed"]!["enabled"]!);
         Assert.Equal("3:20", (string)payload["duration"]!["value"]!);
@@ -121,18 +122,18 @@ public class DialFeedbackTests
     public void Next_SameFrame_IsNull()
     {
         var feedback = new DialFeedback();
-        feedback.Next(Frame(), "cover:1", () => "data:cover");
+        feedback.Next(Frame(), "cover:1", () => "data:cover", "bg:1", () => "data:bg");
 
-        Assert.Null(feedback.Next(Frame(), "cover:1", () => "data:cover"));
+        Assert.Null(feedback.Next(Frame(), "cover:1", () => "data:cover", "bg:1", () => "data:bg"));
     }
 
     [Fact]
     public void Next_OnlyTheElapsedTimeMoved_SendsOnlyThat()
     {
         var feedback = new DialFeedback();
-        feedback.Next(Frame(position: 30, duration: 2000), "cover:1", () => "data:cover");
+        feedback.Next(Frame(position: 30, duration: 2000), "cover:1", () => "data:cover", "bg:1", () => "data:bg");
 
-        var payload = feedback.Next(Frame(position: 31, duration: 2000), "cover:1", () => "data:cover");
+        var payload = feedback.Next(Frame(position: 31, duration: 2000), "cover:1", () => "data:cover", "bg:1", () => "data:bg");
 
         Assert.Equal(new[] { "elapsed" }, payload!.Properties().Select(p => p.Name).ToArray());
         Assert.Equal("0:31", (string)payload["elapsed"]!["value"]!);
@@ -143,9 +144,9 @@ public class DialFeedbackTests
     {
         var feedback = new DialFeedback();
         var renders = 0;
-        feedback.Next(Frame(), "cover:1", () => { renders++; return "data:cover"; });
+        feedback.Next(Frame(), "cover:1", () => { renders++; return "data:cover"; }, "bg:1", () => "data:bg");
 
-        feedback.Next(Frame(title: "Other"), "cover:1", () => { renders++; return "data:cover"; });
+        feedback.Next(Frame(title: "Other"), "cover:1", () => { renders++; return "data:cover"; }, "bg:1", () => "data:bg");
 
         Assert.Equal(1, renders);
     }
@@ -154,21 +155,33 @@ public class DialFeedbackTests
     public void Next_NewCoverKey_SendsTheCover()
     {
         var feedback = new DialFeedback();
-        feedback.Next(Frame(), "cover:1", () => "data:one");
+        feedback.Next(Frame(), "cover:1", () => "data:one", "bg:1", () => "data:bg");
 
-        var payload = feedback.Next(Frame(), "cover:2", () => "data:two");
+        var payload = feedback.Next(Frame(), "cover:2", () => "data:two", "bg:1", () => "data:bg");
 
         Assert.Equal(new[] { "cover" }, payload!.Properties().Select(p => p.Name).ToArray());
         Assert.Equal("data:two", (string)payload["cover"]!);
     }
 
     [Fact]
+    public void Next_NewBackgroundKey_SendsOnlyTheBackground()
+    {
+        var feedback = new DialFeedback();
+        feedback.Next(Frame(), "cover:1", () => "data:cover", "bg:1", () => "data:one");
+
+        var payload = feedback.Next(Frame(), "cover:1", () => "data:cover", "bg:2", () => "data:two");
+
+        Assert.Equal(new[] { "background" }, payload!.Properties().Select(p => p.Name).ToArray());
+        Assert.Equal("data:two", (string)payload["background"]!);
+    }
+
+    [Fact]
     public void Next_TimelineDisappears_DisablesAllThreeItems()
     {
         var feedback = new DialFeedback();
-        feedback.Next(Frame(), "cover:1", () => "data:cover");
+        feedback.Next(Frame(), "cover:1", () => "data:cover", "bg:1", () => "data:bg");
 
-        var payload = feedback.Next(Frame(duration: 0), "cover:1", () => "data:cover");
+        var payload = feedback.Next(Frame(duration: 0), "cover:1", () => "data:cover", "bg:1", () => "data:bg");
 
         Assert.False((bool)payload!["elapsed"]!["enabled"]!);
         Assert.False((bool)payload["duration"]!["enabled"]!);
@@ -179,11 +192,11 @@ public class DialFeedbackTests
     public void Reset_MakesTheNextFrameFullAgain()
     {
         var feedback = new DialFeedback();
-        feedback.Next(Frame(), "cover:1", () => "data:cover");
+        feedback.Next(Frame(), "cover:1", () => "data:cover", "bg:1", () => "data:bg");
 
         feedback.Reset();
-        var payload = feedback.Next(Frame(), "cover:1", () => "data:cover");
+        var payload = feedback.Next(Frame(), "cover:1", () => "data:cover", "bg:1", () => "data:bg");
 
-        Assert.Equal(6, payload!.Count);
+        Assert.Equal(7, payload!.Count);
     }
 }

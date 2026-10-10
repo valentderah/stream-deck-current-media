@@ -66,7 +66,11 @@
 		"TouchLongTap": "길게 탭",
 		"SeekInTrack": "트랙 내 탐색",
 		"SwitchTrack": "트랙 전환",
-		"SecondsPerTick": "한 칸당 초",
-		"TapSeek": "진행 막대를 탭하여 탐색"
+		"SeekStep": "탐색 간격 (초)",
+		"TapSeek": "진행 막대를 탭하여 탐색",
+		"SectionKey": "키",
+		"SectionDial": "다이얼",
+		"SectionTouchStrip": "터치 스트립",
+		"SectionDisplay": "표시"
 	}
 }

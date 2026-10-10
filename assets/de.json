@@ -66,7 +66,11 @@
 		"TouchLongTap": "Langes Tippen",
 		"SeekInTrack": "Im Titel spulen",
 		"SwitchTrack": "Titel wechseln",
-		"SecondsPerTick": "Sekunden pro Raststufe",
-		"TapSeek": "Tippen auf den Fortschrittsbalken spult"
+		"SeekStep": "Spulschritt (Sek.)",
+		"TapSeek": "Tippen auf den Fortschrittsbalken spult",
+		"SectionKey": "Taste",
+		"SectionDial": "Drehregler",
+		"SectionTouchStrip": "Touch-Leiste",
+		"SectionDisplay": "Anzeige"
 	}
 }

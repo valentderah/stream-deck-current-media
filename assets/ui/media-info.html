@@ -8,25 +8,7 @@
 
 <body style="visibility: hidden;">
     <div class="sdpi-wrapper">
-        <div class="sdpi-item" data-controller="Keypad">
-            <label class="sdpi-item-label" data-i18n="ImageMode">Image Mode</label>
-            <select class="sdpi-item-value" data-setting="position" data-default="none">
-                <option value="none" data-i18n="Full">Full</option>
-                <option value="top-left" data-i18n="TopLeft">Top Left (2x2)</option>
-                <option value="top-right" data-i18n="TopRight">Top Right (2x2)</option>
-                <option value="bottom-left" data-i18n="BottomLeft">Bottom Left (2x2)</option>
-                <option value="bottom-right" data-i18n="BottomRight">Bottom Right (2x2)</option>
-                <option value="no-image" data-i18n="NoImage">No Cover Art</option>
-            </select>
-        </div>
-
-        <div class="sdpi-item" data-controller="Keypad">
-            <label class="sdpi-item-label" data-i18n="CoverCrop">Cover Crop</label>
-            <select class="sdpi-item-value" data-setting="cropMode" data-default="square">
-                <option value="square" data-i18n="CropToSquare">Crop to Square</option>
-                <option value="fit" data-i18n="OriginalRatio">Original Ratio</option>
-            </select>
-        </div>
+        <div class="sdpi-heading" data-controller="Keypad" data-i18n="SectionKey">Key</div>
 
         <div class="sdpi-item" data-controller="Keypad">
             <label class="sdpi-item-label" data-i18n="ActionOnClick">Press</label>
@@ -59,6 +41,8 @@
                    data-setting="seconds" data-default="10" />
         </div>
 
+        <div class="sdpi-heading" data-controller="Encoder" data-i18n="SectionDial">Dial</div>
+
         <div class="sdpi-item" data-controller="Encoder">
             <label class="sdpi-item-label" data-i18n="DialRotate">Rotate</label>
             <select class="sdpi-item-value" data-setting="dialRotate" data-default="seek">
@@ -78,12 +62,6 @@
         </div>
 
         <div class="sdpi-item" data-controller="Encoder">
-            <label class="sdpi-item-label" data-i18n="SecondsPerTick">Seconds per Tick</label>
-            <input class="sdpi-item-value" type="number" min="1" step="1"
-                   data-setting="dialSeekSeconds" data-default="5" />
-        </div>
-
-        <div class="sdpi-item" data-controller="Encoder">
             <label class="sdpi-item-label" data-i18n="DialPress">Press</label>
             <select class="sdpi-item-value" data-setting="dialPress" data-default="toggle">
                 <option value="toggle" data-i18n="PlayPause">Play/Pause</option>
@@ -94,6 +72,15 @@
                 <option value="none" data-i18n="None">None</option>
             </select>
         </div>
+
+        <div class="sdpi-item" data-controller="Encoder"
+             data-visible-when="dialRotate=seek;dialPressRotate=seek;dialPress=forward,backward;touchTap=forward,backward;touchLongTap=forward,backward">
+            <label class="sdpi-item-label" data-i18n="SeekStep">Seek Step (sec)</label>
+            <input class="sdpi-item-value" type="number" min="1" step="1"
+                   data-setting="dialSeekSeconds" data-default="5" />
+        </div>
+
+        <div class="sdpi-heading" data-controller="Encoder" data-i18n="SectionTouchStrip">Touch Strip</div>
 
         <div class="sdpi-item" data-controller="Encoder">
             <label class="sdpi-item-label" data-i18n="TouchTap">Tap</label>
@@ -124,6 +111,28 @@
             <input class="sdpi-item-value" type="checkbox" data-setting="tapSeek" data-default="true" />
         </div>
 
+        <div class="sdpi-heading" data-i18n="SectionDisplay">Display</div>
+
+        <div class="sdpi-item" data-controller="Keypad">
+            <label class="sdpi-item-label" data-i18n="ImageMode">Image Mode</label>
+            <select class="sdpi-item-value" data-setting="position" data-default="none">
+                <option value="none" data-i18n="Full">Full</option>
+                <option value="top-left" data-i18n="TopLeft">Top Left (2x2)</option>
+                <option value="top-right" data-i18n="TopRight">Top Right (2x2)</option>
+                <option value="bottom-left" data-i18n="BottomLeft">Bottom Left (2x2)</option>
+                <option value="bottom-right" data-i18n="BottomRight">Bottom Right (2x2)</option>
+                <option value="no-image" data-i18n="NoImage">No Cover Art</option>
+            </select>
+        </div>
+
+        <div class="sdpi-item" data-controller="Keypad">
+            <label class="sdpi-item-label" data-i18n="CoverCrop">Cover Crop</label>
+            <select class="sdpi-item-value" data-setting="cropMode" data-default="square">
+                <option value="square" data-i18n="CropToSquare">Crop to Square</option>
+                <option value="fit" data-i18n="OriginalRatio">Original Ratio</option>
+            </select>
+        </div>
+
         <div class="sdpi-item">
             <label class="sdpi-item-label" data-i18n="TextDisplay">Text Display</label>
             <select class="sdpi-item-value" data-setting="textDisplayMode" data-default="both">
@@ -144,7 +153,7 @@
             </select>
         </div>
 
-        <div class="sdpi-item">
+        <div class="sdpi-item" data-visible-when="textDisplayMode=both,artists,title">
             <label class="sdpi-item-label" data-i18n="MarqueeSpeed">Marquee Speed</label>
             <div class="sdpi-range-wrapper">
                 <input class="sdpi-item-value" type="range" min="0" max="100" step="1"

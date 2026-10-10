@@ -6,8 +6,14 @@ internal sealed class DialFeedback
 {
     private DialFrame? _sent;
     private string? _coverKey;
+    private string? _backgroundKey;
 
-    public JObject? Next(DialFrame frame, string coverKey, Func<string> renderCover)
+    public JObject? Next(
+        DialFrame frame,
+        string coverKey,
+        Func<string> renderCover,
+        string backgroundKey,
+        Func<string> renderBackground)
     {
         var payload = new JObject();
         var previous = _sent;
@@ -45,6 +51,12 @@ internal sealed class DialFeedback
             _coverKey = coverKey;
         }
 
+        if (_backgroundKey != backgroundKey)
+        {
+            payload["background"] = renderBackground();
+            _backgroundKey = backgroundKey;
+        }
+
         _sent = frame;
         return payload.Count == 0 ? null : payload;
     }
@@ -53,6 +65,7 @@ internal sealed class DialFeedback
     {
         _sent = null;
         _coverKey = null;
+        _backgroundKey = null;
     }
 
     private static JObject Item(JToken value, bool enabled) => new()

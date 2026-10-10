@@ -40,6 +40,15 @@ body {
 	padding: 4px 8px;
 }
 
+.sdpi-heading {
+	margin: 8px 8px 2px;
+	padding-bottom: 4px;
+	border-bottom: 1px solid var(--highlight-color);
+	color: var(--input-font-color);
+	font-weight: 600;
+	user-select: none;
+}
+
 .sdpi-item-label {
 	flex: 0 0 var(--label-width);
 	width: var(--label-width);

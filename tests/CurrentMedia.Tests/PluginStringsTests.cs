@@ -86,8 +86,12 @@ public class PluginStringsTests : IDisposable
     [InlineData("TouchLongTap")]
     [InlineData("SeekInTrack")]
     [InlineData("SwitchTrack")]
-    [InlineData("SecondsPerTick")]
+    [InlineData("SeekStep")]
     [InlineData("TapSeek")]
+    [InlineData("SectionKey")]
+    [InlineData("SectionDial")]
+    [InlineData("SectionTouchStrip")]
+    [InlineData("SectionDisplay")]
     public void EnglishCatalog_HasTheDialKeys(string key)
     {
         Assert.Contains(key, Keys(Path.Combine(RepoPaths.Assets, "en.json")));

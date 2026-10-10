@@ -367,7 +367,9 @@ public class NowPlayingAction : KeyAndEncoderBase
                 return;
             }
 
-            var png = await Task.Run(() => IdleImageHelper.TryLoadFromFile(path));
+            var png = await Task.Run(() => _dialView != null
+                ? IdleImageHelper.TryLoadFromFile(path, TouchZones.StripWidth, TouchZones.StripHeight)
+                : IdleImageHelper.TryLoadFromFile(path));
             if (png == null)
             {
                 Logger.Instance.LogMessage(TracingLevel.WARN, $"Could not load idle image from {path}");

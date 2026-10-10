@@ -42,6 +42,19 @@ public class NowPlayingDialViewTests
     }
 
     [Fact]
+    public async Task ApplySettingsAsync_NewIdleImage_ResendsOnlyTheBackground()
+    {
+        var settings = new NowPlayingSettings { MarqueeSpeed = 0 };
+        using var view = NewView(settings);
+        await view.ShowAsync(new MediaState());
+
+        settings.IdleImage = "data:image/png;base64,AAAA";
+        await view.ApplySettingsAsync();
+
+        Assert.Equal(new[] { "background" }, _sent[^1].Properties().Select(p => p.Name).ToArray());
+    }
+
+    [Fact]
     public async Task RenderAsync_NothingChanged_SendsNothing()
     {
         using var view = NewView();

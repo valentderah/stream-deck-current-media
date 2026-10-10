@@ -17,6 +17,7 @@ internal sealed class NowPlayingDialView : IDisposable
     private readonly object _stateLock = new();
     private MediaState _state = new();
     private string _coverKey = "";
+    private string _backgroundKey = "";
     private int _marqueeOffset;
     private Timer? _progressTimer;
     private Timer? _marqueeTimer;
@@ -29,6 +30,7 @@ internal sealed class NowPlayingDialView : IDisposable
         _settings = settings;
         _time = time;
         _coverKey = CoverKey(_state);
+        _backgroundKey = BackgroundKey(_state);
     }
 
     public double Duration
@@ -76,6 +78,7 @@ internal sealed class NowPlayingDialView : IDisposable
 
             _state = state;
             _coverKey = CoverKey(state);
+            _backgroundKey = BackgroundKey(state);
         }
 
         return RenderAsync();
@@ -115,7 +118,7 @@ internal sealed class NowPlayingDialView : IDisposable
     {
         lock (_stateLock)
         {
-            _coverKey = CoverKey(_state);
+            _backgroundKey = BackgroundKey(_state);
         }
 
         if (_started)
@@ -153,11 +156,13 @@ internal sealed class NowPlayingDialView : IDisposable
             MediaState state;
             MediaTimeline timeline;
             string coverKey;
+            string backgroundKey;
             lock (_stateLock)
             {
                 state = _state;
                 timeline = _tracker.Current;
                 coverKey = _coverKey;
+                backgroundKey = _backgroundKey;
             }
 
             var frame = DialFrameBuilder.Build(
@@ -170,7 +175,9 @@ internal sealed class NowPlayingDialView : IDisposable
             var payload = _feedback.Next(
                 frame,
                 coverKey,
-                () => ImagePipeline.RenderStripCover(HasMedia(state), _settings.IdleImage));
+                () => ImagePipeline.RenderStripCover(HasMedia(state)),
+                backgroundKey,
+                () => ImagePipeline.RenderStripBackground(HasMedia(state), _settings.IdleImage));
             if (payload == null)
             {
                 return;
@@ -215,8 +222,12 @@ internal sealed class NowPlayingDialView : IDisposable
         }, null, interval, interval);
     }
 
-    private string CoverKey(MediaState state) => HasMedia(state)
+    private static string CoverKey(MediaState state) => HasMedia(state)
         ? "cover:" + Fnv1a.Hash32Hex(state.CoverArtBase64)
+        : "none";
+
+    private string BackgroundKey(MediaState state) => HasMedia(state)
+        ? "none"
         : "idle:" + Fnv1a.Hash32Hex(_settings.IdleImage);
 
     private static bool HasMedia(MediaState state) => state.IsActive && state.HasMediaData;

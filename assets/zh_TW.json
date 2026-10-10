@@ -66,7 +66,11 @@
 		"TouchLongTap": "長按",
 		"SeekInTrack": "曲目內跳轉",
 		"SwitchTrack": "切換曲目",
-		"SecondsPerTick": "每格秒數",
-		"TapSeek": "輕觸進度列跳轉"
+		"SeekStep": "跳轉步長（秒）",
+		"TapSeek": "輕觸進度列跳轉",
+		"SectionKey": "按鍵",
+		"SectionDial": "旋鈕",
+		"SectionTouchStrip": "觸控條",
+		"SectionDisplay": "顯示"
 	}
 }

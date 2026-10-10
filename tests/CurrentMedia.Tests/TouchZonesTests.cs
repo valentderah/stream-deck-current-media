@@ -87,8 +87,18 @@ public class TouchZonesTests
         var items = ((JArray)layout["items"]!).ToDictionary(item => (string)item["key"]!, item => item);
 
         Assert.Equal(
-            new[] { "artist", "cover", "duration", "elapsed", "progress", "title" },
+            new[] { "artist", "background", "cover", "duration", "elapsed", "progress", "title" },
             items.Keys.OrderBy(key => key, StringComparer.Ordinal).ToArray());
+
+        Assert.Equal(
+            new[] { 0, 0, TouchZones.StripWidth, TouchZones.StripHeight },
+            items["background"]["rect"]!.Values<int>().ToArray());
+        foreach (var item in items.Values.Where(item => (string)item["key"]! != "background"))
+        {
+            Assert.True(
+                (int)item["zOrder"]! > (int)items["background"]["zOrder"]!,
+                $"{item["key"]} must sit above the background");
+        }
 
         var bar = items["progress"]["rect"]!.Values<int>().ToArray();
         Assert.Equal(TouchZones.BarLeft, bar[0]);
@@ -107,8 +117,12 @@ public class TouchZonesTests
         foreach (var item in items.Values)
         {
             var rect = item["rect"]!.Values<int>().ToArray();
-            Assert.True(rect[0] >= 0 && rect[0] + rect[2] <= 200, $"{item["key"]} leaves the segment horizontally");
-            Assert.True(rect[1] >= 0 && rect[1] + rect[3] <= 100, $"{item["key"]} leaves the segment vertically");
+            Assert.True(
+                rect[0] >= 0 && rect[0] + rect[2] <= TouchZones.StripWidth,
+                $"{item["key"]} leaves the segment horizontally");
+            Assert.True(
+                rect[1] >= 0 && rect[1] + rect[3] <= TouchZones.StripHeight,
+                $"{item["key"]} leaves the segment vertically");
         }
     }
 }

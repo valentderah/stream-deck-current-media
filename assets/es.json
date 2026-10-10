@@ -66,7 +66,11 @@
 		"TouchLongTap": "Toque largo",
 		"SeekInTrack": "Avanzar en la pista",
 		"SwitchTrack": "Cambiar de pista",
-		"SecondsPerTick": "Segundos por paso",
-		"TapSeek": "Tocar la barra de progreso para saltar"
+		"SeekStep": "Paso de salto (s)",
+		"TapSeek": "Tocar la barra de progreso para saltar",
+		"SectionKey": "Tecla",
+		"SectionDial": "Dial",
+		"SectionTouchStrip": "Banda táctil",
+		"SectionDisplay": "Visualización"
 	}
 }
