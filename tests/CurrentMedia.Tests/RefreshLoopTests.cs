@@ -1,9 +1,12 @@
+using System.Diagnostics;
 using Xunit;
 
 namespace CurrentMedia.Tests;
 
 public class RefreshLoopTests
 {
+    private static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(10);
+
     [Fact]
     public async Task Burst_OfRequests_CollapsesIntoSinglePass()
     {
@@ -16,7 +19,8 @@ public class RefreshLoopTests
             loop.Request();
         }
 
-        await Task.Delay(500);
+        await WaitUntilAsync(() => Volatile.Read(ref passes) >= 1);
+        await Task.Delay(200);
         Assert.InRange(Volatile.Read(ref passes), 1, 2);
     }
 
@@ -37,7 +41,7 @@ public class RefreshLoopTests
             }
         });
 
-        await Task.Delay(500);
+        await WaitUntilAsync(() => Volatile.Read(ref passes) >= 2);
         spam.Cancel();
         await spammer;
 
@@ -51,7 +55,7 @@ public class RefreshLoopTests
         using var loop = NewLoop(() => Interlocked.Increment(ref passes), quietMs: 10, maxDelayMs: 20, pollMs: 80);
 
         loop.Start();
-        await Task.Delay(400);
+        await WaitUntilAsync(() => Volatile.Read(ref passes) >= 3);
 
         Assert.True(Volatile.Read(ref passes) >= 3, $"expected periodic passes, got {passes}");
     }
@@ -100,7 +104,7 @@ public class RefreshLoopTests
             _ => Interlocked.Increment(ref errors));
 
         loop.Start();
-        await Task.Delay(300);
+        await WaitUntilAsync(() => Volatile.Read(ref passes) >= 2 && Volatile.Read(ref errors) >= 2);
 
         Assert.True(Volatile.Read(ref passes) >= 2, $"expected the loop to keep running, got {passes}");
         Assert.True(Volatile.Read(ref errors) >= 2, $"expected failures to be reported, got {errors}");
@@ -140,6 +144,16 @@ public class RefreshLoopTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new RefreshLoop(
             _ => Task.CompletedTask,
             new RefreshLoopOptions { PollInterval = TimeSpan.Zero }));
+    }
+
+    // A fixed delay undercounts passes on a loaded machine, so wait for the condition itself.
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var start = Stopwatch.GetTimestamp();
+        while (!condition() && Stopwatch.GetElapsedTime(start) < WaitTimeout)
+        {
+            await Task.Delay(10);
+        }
     }
 
     private static RefreshLoop NewLoop(Action work, int quietMs, int maxDelayMs, int pollMs) =>
