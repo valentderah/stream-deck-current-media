@@ -19,7 +19,8 @@ internal sealed class TimelineTracker
                 PlaybackClock.PositionAt(Current, now),
                 Current.Duration,
                 incoming.IsPlaying,
-                now);
+                now,
+                incoming.Rate);
             return;
         }
 

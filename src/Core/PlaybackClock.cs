@@ -7,7 +7,7 @@ internal static class PlaybackClock
         var position = timeline.Position;
         if (timeline.IsPlaying)
         {
-            position += Math.Max(0, (now - timeline.CapturedAt).TotalSeconds);
+            position += Math.Max(0, (now - timeline.CapturedAt).TotalSeconds) * timeline.Rate;
         }
 
         return Clamp(position, timeline);

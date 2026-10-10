@@ -14,6 +14,46 @@ public class PlaybackClockTests
         Assert.Equal(35, PlaybackClock.PositionAt(timeline, T0.AddSeconds(5)));
     }
 
+    [Theory]
+    [InlineData(2, 40)]
+    [InlineData(0.5, 32.5)]
+    public void PositionAt_Playing_AdvancesAtThePlaybackRate(double rate, double expected)
+    {
+        var timeline = new MediaTimeline(30, 200, true, T0, rate);
+
+        Assert.Equal(expected, PlaybackClock.PositionAt(timeline, T0.AddSeconds(5)));
+    }
+
+    [Fact]
+    public void Shift_KeepsThePlaybackRate()
+    {
+        var timeline = new MediaTimeline(30, 200, true, T0, 2);
+
+        var shifted = PlaybackClock.Shift(timeline, 10, T0.AddSeconds(5));
+
+        Assert.Equal(new MediaTimeline(50, 200, true, T0.AddSeconds(5), 2), shifted);
+    }
+
+    [Fact]
+    public void From_CopiesThePlaybackRate()
+    {
+        var state = new MediaState { IsActive = true, Status = "Playing", Duration = 100, PlaybackRate = 1.5 };
+
+        Assert.Equal(1.5, MediaTimeline.From(state, T0).Rate);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    public void From_UnusablePlaybackRate_IsNormalSpeed(double rate)
+    {
+        var state = new MediaState { IsActive = true, Status = "Playing", Duration = 100, PlaybackRate = rate };
+
+        Assert.Equal(1, MediaTimeline.From(state, T0).Rate);
+    }
+
     [Fact]
     public void PositionAt_Paused_StaysPut()
     {

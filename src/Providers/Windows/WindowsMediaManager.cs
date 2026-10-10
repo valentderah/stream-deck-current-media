@@ -76,8 +76,8 @@ public sealed class WindowsMediaManager : IMediaManager
     public Task PreviousAsync() =>
         RunCommandAsync(session => session.TrySkipPreviousAsync(), "TrySkipPreviousAsync");
 
-    public Task SeekByAsync(int offsetSeconds) => SeekAsync((timeline, status) =>
-        GetEffectivePlaybackPosition(timeline, status) + TimeSpan.FromSeconds(offsetSeconds));
+    public Task SeekByAsync(int offsetSeconds) => SeekAsync((timeline, playback) =>
+        GetEffectivePlaybackPosition(timeline, playback) + TimeSpan.FromSeconds(offsetSeconds));
 
     public Task SeekToAsync(double seconds)
     {
@@ -481,7 +481,7 @@ public sealed class WindowsMediaManager : IMediaManager
         var timeline = TryReadTimeline(entry);
         if (timeline != null)
         {
-            DetectTrackChange(entry, timeline, playback.PlaybackStatus);
+            DetectTrackChange(entry, timeline, playback);
         }
 
         var track = await EnsureTrackAsync(entry, token).ConfigureAwait(false);
@@ -512,7 +512,7 @@ public sealed class WindowsMediaManager : IMediaManager
             IsActive = true
         };
 
-        ApplyTimeline(timeline, playback.PlaybackStatus, state);
+        ApplyTimeline(timeline, playback, state);
 
         state.AppIconBase64 = await WindowsAppIconProcessor
             .GetAppIconBase64Async(entry.Id, entry.SourceAppInfo, MediaClientTimeouts.AppIcon, token)
@@ -632,10 +632,10 @@ public sealed class WindowsMediaManager : IMediaManager
         }
     }
 
-    private static void DetectTrackChange(SessionEntry entry, SmtcTimeline timeline, SmtcPlaybackStatus status)
+    private static void DetectTrackChange(SessionEntry entry, SmtcTimeline timeline, SmtcPlaybackInfo playback)
     {
         var duration = timeline.EndTime;
-        var position = GetEffectivePlaybackPosition(timeline, status);
+        var position = GetEffectivePlaybackPosition(timeline, playback);
 
         if (entry.LastDuration != TimeSpan.Zero && duration != entry.LastDuration)
         {
@@ -650,14 +650,16 @@ public sealed class WindowsMediaManager : IMediaManager
         entry.LastPosition = position;
     }
 
-    private static void ApplyTimeline(SmtcTimeline? timeline, SmtcPlaybackStatus status, MediaState state)
+    private static void ApplyTimeline(SmtcTimeline? timeline, SmtcPlaybackInfo playback, MediaState state)
     {
+        state.PlaybackRate = ReadPlaybackRate(playback);
+
         if (timeline == null)
         {
             return;
         }
 
-        state.Position = (GetEffectivePlaybackPosition(timeline, status) - timeline.StartTime).TotalSeconds;
+        state.Position = (GetEffectivePlaybackPosition(timeline, playback) - timeline.StartTime).TotalSeconds;
         state.PositionCapturedAt = DateTimeOffset.UtcNow;
 
         var duration = timeline.EndTime - timeline.StartTime;
@@ -724,7 +726,7 @@ public sealed class WindowsMediaManager : IMediaManager
         ScheduleUpdate(force: false);
     }
 
-    private async Task SeekAsync(Func<SmtcTimeline, SmtcPlaybackStatus, TimeSpan> computeTarget)
+    private async Task SeekAsync(Func<SmtcTimeline, SmtcPlaybackInfo, TimeSpan> computeTarget)
     {
         var session = await GetCommandSessionAsync().ConfigureAwait(false);
         if (session == null)
@@ -747,7 +749,7 @@ public sealed class WindowsMediaManager : IMediaManager
                 return;
             }
 
-            target = computeTarget(timeline, playback.PlaybackStatus);
+            target = computeTarget(timeline, playback);
 
             if (target < timeline.StartTime)
             {
@@ -1103,15 +1105,27 @@ public sealed class WindowsMediaManager : IMediaManager
         Fnv1a.Hash32Hex(state.CoverArtBase64),
         Fnv1a.Hash32Hex(state.AppIconBase64));
 
-    private static TimeSpan GetEffectivePlaybackPosition(SmtcTimeline timeline, SmtcPlaybackStatus status)
+    private static TimeSpan GetEffectivePlaybackPosition(SmtcTimeline timeline, SmtcPlaybackInfo playback)
     {
         var position = timeline.Position;
-        if (status == SmtcPlaybackStatus.Playing)
+        if (playback.PlaybackStatus == SmtcPlaybackStatus.Playing)
         {
-            position += DateTimeOffset.UtcNow - timeline.LastUpdatedTime;
+            position += (DateTimeOffset.UtcNow - timeline.LastUpdatedTime) * ReadPlaybackRate(playback);
         }
 
         return position;
+    }
+
+    private static double ReadPlaybackRate(SmtcPlaybackInfo playback)
+    {
+        try
+        {
+            return MediaTimeline.NormalizeRate(playback.PlaybackRate ?? 1);
+        }
+        catch
+        {
+            return 1;
+        }
     }
 
     private sealed class SessionEntry
