@@ -218,6 +218,7 @@ public sealed class MacMediaManager : IMediaManager
                 _streamProcess.StartInfo.ArgumentList.Add(_frameworkPath);
                 _streamProcess.StartInfo.ArgumentList.Add("stream");
                 _streamProcess.StartInfo.ArgumentList.Add("--no-diff");
+                _streamProcess.StartInfo.ArgumentList.Add("--micros");
                 _streamProcess.StartInfo.ArgumentList.Add($"--debounce={StreamDebounceMs}");
 
                 _streamProcess.Start();
@@ -302,14 +303,15 @@ public sealed class MacMediaManager : IMediaManager
                 : payload.BundleIdentifier;
             var appIconBase64 = MacAppIconHelper.GetAppIconBase64(bundleId);
 
-            var mediaState = payload.ToMediaState(appIconBase64);
             var now = DateTimeOffset.UtcNow;
+            var mediaState = payload.ToMediaState(appIconBase64, now);
             var timeline = MediaTimeline.From(mediaState, now);
             var seekTimeline = new MediaTimeline(
                 mediaState.Position,
                 mediaState.Duration,
                 mediaState.Status == "Playing",
-                mediaState.PositionCapturedAt == default ? now : mediaState.PositionCapturedAt);
+                mediaState.PositionCapturedAt == default ? now : mediaState.PositionCapturedAt,
+                MediaTimeline.NormalizeRate(mediaState.PlaybackRate));
             lock (_timelineLock)
             {
                 _timeline = timeline;

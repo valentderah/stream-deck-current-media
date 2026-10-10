@@ -28,8 +28,14 @@ internal sealed class AdapterPayload
     [JsonPropertyName("elapsedTime")]
     public double ElapsedTime { get; set; }
 
-    [JsonPropertyName("elapsedTimeNow")]
-    public double? ElapsedTimeNow { get; set; }
+    [JsonPropertyName("durationMicros")]
+    public double? DurationMicros { get; set; }
+
+    [JsonPropertyName("elapsedTimeMicros")]
+    public double? ElapsedTimeMicros { get; set; }
+
+    [JsonPropertyName("timestampEpochMicros")]
+    public double? TimestampEpochMicros { get; set; }
 
     [JsonPropertyName("playing")]
     public bool Playing { get; set; }
@@ -46,7 +52,9 @@ internal sealed class AdapterPayload
     [JsonPropertyName("artworkData")]
     public string ArtworkData { get; set; } = "";
 
-    public MediaState ToMediaState(string appIconBase64)
+    private const double MicrosPerSecond = 1_000_000;
+
+    public MediaState ToMediaState(string appIconBase64, DateTimeOffset now)
     {
         var hasTrackData = !string.IsNullOrEmpty(Title) || !string.IsNullOrEmpty(Artist);
         var isPlaying = Playing || PlaybackRate > 0;
@@ -67,9 +75,21 @@ internal sealed class AdapterPayload
             IsActive = hasTrackData,
             CoverArtBase64 = MacArtworkConverter.NormalizeToDisplayBase64(ArtworkData),
             AppIconBase64 = appIconBase64,
-            Position = ElapsedTimeNow ?? ElapsedTime,
-            Duration = Duration,
-            PositionCapturedAt = DateTimeOffset.UtcNow
+            Position = ElapsedTimeMicros / MicrosPerSecond ?? ElapsedTime,
+            Duration = DurationMicros / MicrosPerSecond ?? Duration,
+            PositionCapturedAt = CapturedAt(now),
+            PlaybackRate = PlaybackRate
         };
+    }
+
+    // elapsedTime is only valid at the moment the player stamped it, not when the update arrives.
+    private DateTimeOffset CapturedAt(DateTimeOffset now)
+    {
+        if (TimestampEpochMicros is not { } micros || !double.IsFinite(micros) || micros <= 0)
+        {
+            return now;
+        }
+
+        return DateTimeOffset.UnixEpoch.AddTicks((long)(micros * (TimeSpan.TicksPerSecond / MicrosPerSecond)));
     }
 }

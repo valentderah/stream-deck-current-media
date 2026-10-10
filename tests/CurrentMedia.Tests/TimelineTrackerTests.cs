@@ -58,6 +58,18 @@ public class TimelineTrackerTests
     }
 
     [Fact]
+    public void Accept_StaleSnapshotDuringHold_TakesItsPlaybackRate()
+    {
+        var tracker = TrackerAt(30);
+        tracker.Shift(20, T0.AddSeconds(1));
+
+        tracker.Accept(new MediaTimeline(31.5, 200, true, T0.AddSeconds(1.5), 2), T0.AddSeconds(1.5));
+
+        Assert.Equal(2, tracker.Current.Rate);
+        Assert.Equal(51.5, tracker.Current.Position, 3);
+    }
+
+    [Fact]
     public void Accept_MatchingSnapshotDuringHold_TakesTheSnapshot()
     {
         var tracker = TrackerAt(30);

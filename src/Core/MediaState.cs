@@ -14,6 +14,7 @@ public class MediaState
     public double Position { get; set; }
     public double Duration { get; set; }
     public DateTimeOffset PositionCapturedAt { get; set; }
+    public double PlaybackRate { get; set; } = 1;
 
     public bool HasMediaData =>
         IsActive && (!string.IsNullOrEmpty(Title) || !string.IsNullOrEmpty(Artist) || Artists.Count > 0);
